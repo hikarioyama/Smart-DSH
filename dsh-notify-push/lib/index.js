@@ -218,9 +218,9 @@ function apply(ctx) {
 						return;
 					}
 					const list = loadSubscriptions();
-					const next = list.filter((entry) => entry.endpoint !== endpoint);
-					saveSubscriptions(next);
-					json(res, 200, { ok: true, removed: list.length - next.length });
+					const remaining = list.filter((entry) => entry.endpoint !== endpoint);
+					saveSubscriptions(remaining);
+					json(res, 200, { ok: true, removed: list.length - remaining.length });
 				} catch (error) {
 					json(res, error?.statusCode ?? 400, { ok: false, error: String(error?.message ?? error) });
 				}

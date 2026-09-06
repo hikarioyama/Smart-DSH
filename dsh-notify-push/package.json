@@ -17,7 +17,8 @@
   },
   "files": [
     "lib",
-    "sw"
+    "sw",
+    "tests"
   ],
   "dsh": {
     "bundle": {

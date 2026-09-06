@@ -1,18 +1,24 @@
-# DSH + Tailscale: Web Push notifications for `ask_user_question`
+# Smart-DSH — Web Push notifications for DSH `ask_user_question`
 
-A self-contained [DeepSeek Harness (DSH)](https://github.com/deepseek-ai/deepseek-harness) bundle
-(`dsh-notify-push`) plus the surrounding setup notes for the paired infrastructure:
-
-- **DSH web server** on `127.0.0.1:3080` (systemd --user unit `dsh-web.service`)
-- **Tailscale Serve** exposing it to the tailnet as `https://<machine>.<tailnet>.ts.net`
-- **Web Push** to an Android phone's Chrome (FCM) and a desktop browser (Mozilla autopush)
-
-When the agent calls `ask_user_question`, the phone receives a Web Push notification
-with the question text — **even when no browser is connected**. Tapping the notification
-focuses the app where the question composer is waiting.
+A self-contained [DeepSeek Harness (DSH)](https://github.com/deepseek-ai/deepseek-harness)
+bundle (`dsh-notify-push`) plus setup notes for the paired remote-access infrastructure
+(Tailscale Serve + phone). When the agent calls `ask_user_question`, your phone receives
+a Web Push notification with the question text — **even when no browser is connected**.
+Tapping it focuses the app where the question composer is waiting.
 
 > Status: working setup on Arch Linux, verified 2026-09-07 with real deliveries to
 > Android Chrome and desktop Firefox. Host-specific identifiers are omitted from these setup examples.
+
+## Requirements
+
+| Requirement | Why |
+|---|---|
+| DSH `0.1.2-rc.1` | The bundle relies on `webServer.register`, `connection.requestRejection`, and the `{ prepend: true }` listener option — verify these exist if your DSH differs (`dsh --version`) |
+| Node `>= 22.19` (23 excluded) | DSH's own requirement |
+| `pnpm` | `dsh plugin` is a thin pnpm forwarder |
+| Any Chromium-based browser or Firefox with `PushManager` | Verified on Android Chrome (FCM) and desktop Firefox (Mozilla autopush) |
+| A **secure context** for the phone | HTTPS via Tailscale Serve (below) — plain `http://<ip>:3080` cannot subscribe to push |
+| Android: nothing extra. iOS: Add-to-Home-Screen | iOS WebKit only delivers push to installed PWAs (16.4+) |
 
 ## How it works
 
@@ -29,83 +35,146 @@ ask_user_question (tool)
 | Host half | `dsh-notify-push/lib/index.js` | prepended waterfall listener + Web Push fan-out + HTTP routes (`/api/push/*` authed via `connection.requestRejection`, `/push/sw.js` static with `Service-Worker-Allowed: /`) |
 | Client half | `dsh-notify-push/lib/client.js` | `window.__ModuleLoader__.load({...})` wrapper; local `Notification` while the page is alive; `/notify` popupSelect command for permission + push subscribe/unsubscribe |
 | Service worker | `dsh-notify-push/sw/sw.js` | `push` → `showNotification` (`requireInteraction: true`), `notificationclick` → focus/open window |
-| State | `~/.dsh/notify-push/` (0600, **not in this repo**) | `vapid.json` (generated on first start, must persist across restarts) + `subscriptions.json` (auto-pruned on 404/410) |
+| State | `$DSH_HOME/notify-push/` (0600, **not in this repo**) | `vapid.json` (generated on first start, must persist across restarts) + `subscriptions.json` (auto-pruned on 404/410) |
+
+The state directory follows `DSH_HOME` (default `~/.dsh`), so nothing here is
+hard-wired to a specific user.
 
 ## Install
 
 ```bash
-# 1. Source the bundle somewhere persistent
+# 0. Where to keep the bundle source — any persistent path works; ~/.dsh/profiles/web/bundles-src/
+#    is just what this setup uses. Adjust BUNDLE_SRC freely.
 BUNDLE_SRC="$HOME/.dsh/profiles/web/bundles-src/dsh-notify-push"
-git clone <this repo> /tmp/dsh-notify-push-tailscale
+git clone https://github.com/hikarioyama/Smart-DSH.git /tmp/Smart-DSH
 mkdir -p "$(dirname "$BUNDLE_SRC")"
-cp -r /tmp/dsh-notify-push-tailscale/dsh-notify-push "$BUNDLE_SRC"
+cp -r /tmp/Smart-DSH/dsh-notify-push "$BUNDLE_SRC"
 
-# 2. The bundle's own dependency (link: install does NOT install it)
+# 1. The bundle's own dependency ("web-push"). Order relative to step 2 does not matter,
+#    but run this BEFORE the first restart.
 cd "$BUNDLE_SRC" && pnpm add web-push@^3.6.7
 
-# 3. Register into the web profile (auto-adds dsh.profile.bundles + link install)
+# 2. Register into the web profile (adds the dependency as link: AND appends
+#    dsh-notify-push to dsh.profile.bundles via its dsh.bundle.patch declaration)
 cd ~/.dsh/profiles/web && dsh plugin --profile web add "$BUNDLE_SRC"
 
-# 4. Verify composition read-only (never touches the running server)
-dsh --profile web --dump-config | grep dsh-notify-push
+# 3. Verify composition read-only (never touches a running server)
+dsh --profile web --dump-config | grep dsh-notify-push   # expect: "- id: dsh-notify-push"
 
-# 5. Reflect: restart (in-flight turns die; sessions persist and resume;
-#    unrelated processes like a local vLLM are unaffected)
-systemctl --user restart dsh-web.service
+# 4. Verify the dependency resolves (from the profile dir)
+cd ~/.dsh/profiles/web && node --input-type=module -e "await import('web-push'); console.log('web-push resolvable')"
 ```
 
-Then in the DSH UI: run `/notify` → "ON" → grant the notification permission.
-Repeat on every device you want notified (each device gets its own subscription).
+> **Dependency note**: `dsh` profiles use `nodeLinker: hoisted` in their
+> `pnpm-workspace.yaml`, so the `pnpm add` in step 1 lands inside the profile's
+> `node_modules` and resolves from the linked bundle. If step 4 reports that
+> `web-push` can't be resolved, re-run step 1 and then `pnpm install` in the
+> profile dir.
 
-## Paired infrastructure (the "Tailscale + phone" half)
+Then restart and enable:
 
-`systemd --user` unit, no secrets in this repo:
+```bash
+systemctl --user restart dsh-web.service
+# In the DSH UI on each device: /notify → ON → grant the notification permission.
+```
+
+Expected result: `~/.dsh/notify-push/vapid.json` + `subscriptions.json` appear on first
+start; each enabled device appears as one subscription; asking the agent a question that
+triggers `ask_user_question` produces a notification on every enabled device.
+
+## Paired infrastructure (remote access + phone)
+
+Minimal, reproducible form — the `flock`/guard/URL-file plumbing in the author's setup
+is machine-specific and intentionally **not** part of this repo:
 
 ```ini
-# ~/.config/systemd/user/dsh-web.service (ExecStart excerpt)
-ExecStart=/usr/bin/flock --nonblock --no-fork <lock> \
-  <node> <dsh> web --host 127.0.0.1 --port 3080 \
+# ~/.config/systemd/user/dsh-web.service (minimal working form)
+# Adjust the ExecStart path to your dsh install location (`which dsh`).
+[Unit]
+Description=DSH web server
+After=network.target
+
+[Service]
+Environment="DSH_HOME=%h/.dsh"
+ExecStart=%h/.local/bin/dsh web --host 127.0.0.1 --port 3080 \
   --trusted-host <machine>.<tailnet>.ts.net --no-open
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
 ```
 
 ```bash
-# Expose to the tailnet only (not Funnel):
-tailscale serve https / http://127.0.0.1:3080
-# → https://<machine>.<tailnet>.ts.net  (tailnet only)
+# Expose to the tailnet only (current tailscale CLI syntax; run once, persists):
+tailscale serve --bg 3080
+# → https://<machine>.<tailnet>.ts.net (proxying http://127.0.0.1:3080)
+tailscale serve status   # verify
 ```
 
 Notes learned during setup:
 
 - DSH binds loopback only; Tailscale Serve is the sole external exposure, so the
   unauthenticated `/push/sw.js` route is reachable from tailnet devices only.
-- Web Push requires a **secure context** — the `https://...ts.net` origin satisfies it
-  (plain `http://<tailscale-ip>:3080` would not).
+- The `--trusted-host` value must match the hostname your phone uses, or the browser-trust
+  fence will reject the connection.
 - The web app already ships a PWA manifest, so the notification-click focus path works
   from a home-screen install too.
-- A guard script refuses a second DSH launcher (`guard-single-dsh.py`), so never run a
-  second throwaway instance for testing — use the fake-ctx harness approach below.
-- Android Chrome: SW + permission is enough. **iOS Chrome needs Add-to-Home-Screen.**
+- If you also run a guard against duplicate DSH launchers, do **not** boot a second
+  throwaway instance for testing — see "Testing without a live server".
+- `tailscale serve` syntax differs across versions (`serve --bg 3080` on current CLI,
+  `serve https / http://...` on older ones) — check `tailscale serve --help`.
 
 ## Testing without a live server
 
-Do **not** boot a second DSH (the single-instance guard fails closed). Instead:
+A self-contained `node --test` suite ships with the bundle (writes only to a temp
+`DSH_HOME`, touches no real state):
 
-- Host half: fake `ctx` harness (`ctx.on/effect/inject` + `webServer.register` collector +
-  `Readable.from` for request bodies). Reaching a DNS failure (`ENOTFOUND`) with a real
-  ECDH P-256 subscription proves the encrypt+VAPID pipeline.
-- Client half: evaluate the served bundle shape with a `window.__ModuleLoader__` shim and
-  a stub `ctx.remote.$on`; assert the listener returns `next()`'s value (delegation).
+```bash
+cd dsh-notify-push && pnpm install && npm test
+# expect: pass 1 / fail 0
+```
+
+What it covers:
+
+- Host half with a fake `ctx` (`ctx.on/effect/inject` + `webServer.register` collector +
+  `Readable.from` request bodies): route registration, auth 401/403 on `/api/push/*`,
+  subscription validation + persistence, waterfall delegation (`next()` value passes
+  through), and the `Service-Worker-Allowed: /` header on `/push/sw.js`.
+- The push send path is exercised with a real ECDH P-256 subscription: encryption + VAPID
+  signing succeed and the send fails at DNS (`ENOTFOUND` against an invalid endpoint),
+  which proves the pipeline up to the network.
+- The client half is not covered by an automated test: verify it manually by loading
+  `lib/client.js` with a `window.__ModuleLoader__` shim and a stub `ctx` (assert the
+  `user-questions/request` listener passes `next()`'s value through, and that the
+  `/notify` popupSelect contribution registers).
 
 ## Ops
 
 - Toggle: `/notify` ON/OFF per device. Revoking browser permission → auto re-subscribe
-  fails at next startup and the stored toggle drops to OFF.
-- Restart checklist: the dsh-web session survives via the append-only log; verify
-  `~/.dsh/notify-push/vapid.json` still exists after restart (fresh keys would orphan
-  every subscription).
+  fails at the next startup and the stored toggle drops to OFF.
+- Restart checklist: DSH sessions survive via the append-only log; verify
+  `$DSH_HOME/notify-push/vapid.json` still exists after restart (fresh keys would orphan
+  every subscription — delete `subscriptions.json` too if you intentionally reset keys).
+- Not receiving notifications, in order: (1) `vapid.json` survived the restart, (2) no
+  `notify-push` errors in the server log, (3) the site's notification permission is
+  "Allow" and Chrome's system-level notifications are on, (4) `subscriptions.json` still
+  has entries.
 - This bundle follows the `dsh.bundle.patch` + `dsh.client` three-layer plugin pattern;
   see `dsh-notify-push/cordis.patch.yml` and `package.json` for the minimal declarations.
 
+## Customization pointers
+
+- **Language**: the notification title/body prefix and the `/notify` command copy are
+  Japanese by default (`選択肢`, `（他 N 件）`, `通知: ON`). Edit `buildPayload` in
+  `lib/index.js`, `questionSummary`/`statusLabel`/command labels in `lib/client.js`.
+- **VAPID subject**: `mailto:root@localhost` in `configure()` is a placeholder; some push
+  services warn about it — set your own contact address.
+- **Browser support**: any browser exposing `PushManager` passes the `/notify` availability
+  check; only Android Chrome and desktop Firefox have been verified.
+- The `requireInteraction: true` in `sw/sw.js` keeps the notification on screen; lower it
+  if you prefer transient banners.
+
 ## KG node
 
-The knowledge-graph node mirroring this repo: `~/knowledge/nodes/agents/dsh-notify-push-bundle-pattern.md`.
+The knowledge-graph node mirroring this repo:
+`~/knowledge/nodes/agents/dsh-notify-push-bundle-pattern.md`.

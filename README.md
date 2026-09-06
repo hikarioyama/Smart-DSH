@@ -1,10 +1,12 @@
-# Smart-DSH — Web Push notifications for DSH `ask_user_question`
+# Smart-DSH — Web Push notifications for DSH `ask_user_question` + turn completion
 
 A self-contained [DeepSeek Harness (DSH)](https://github.com/deepseek-ai/deepseek-harness)
 bundle (`dsh-notify-push`) plus setup notes for the paired remote-access infrastructure
 (Tailscale Serve + phone). When the agent calls `ask_user_question`, your phone receives
 a Web Push notification with the question text — **even when no browser is connected**.
-Tapping it focuses the app where the question composer is waiting.
+When a turn ends, you get a completion notification whose title reflects the end reason
+(`返信完了` / token-cap truncation / blocked / error / aborted); subagent turns do not
+notify — only top-level sessions. Tapping a notification focuses the app.
 
 > Status: working setup on Arch Linux, verified 2026-09-07 with real deliveries to
 > Android Chrome and desktop Firefox. Host-specific identifiers are omitted from these setup examples.
@@ -28,6 +30,12 @@ ask_user_question (tool)
        ├─ sendPushToAll()        web-push → FCM / Mozilla autopush (fire-and-forget)
        └─ return next()          delegates to api-remotes forwarder → browser composer
                                  (the waterfall is NEVER consumed)
+
+turn completion (top-level sessions only)
+  └─ host: ctx.inject(["agents"]) → agentCtx.on("session/event", listener)
+       ├─ filter: agents.roots().includes(agents.get(session.id))   ← subagent turns excluded
+       └─ sendPushToAll(buildTurnEndPayload(session.id, event.data.reason))
+                                 titles by reason.kind: completed / max-tokens / blocked / error / aborted
 ```
 
 | Component | File | Role |

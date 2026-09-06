@@ -116,7 +116,6 @@ window.__ModuleLoader__.load({
 		const inject = ["remote", "commandUi"];
 
 		function apply(ctx) {
-			let notifying = false;
 
 			/** Outermost listener: local notification + delegate to the real answerer. */
 			ctx.remote.$on("user-questions/request", function(request, next) {
@@ -137,9 +136,12 @@ window.__ModuleLoader__.load({
 				return () => {};
 			}, "notify-push: startup re-subscribe");
 
+			/** Ground truth: the durable toggle + actual permission, not in-memory state. */
 			const statusLabel = () => {
-				if (typeof Notification === "undefined") return "このブラウザは通知非対応";
-				return notifying ? "通知: ON" : "通知: OFF";
+				if (typeof Notification === "undefined") return "通知非対応のブラウザ";
+				if (typeof localStorage === "undefined") return Notification.permission === "granted" ? "ON" : "OFF";
+				if (Notification.permission === "denied") return "OFF (許可がブロック済み)";
+				return localStorage.getItem(STATE_KEY) === "on" && Notification.permission === "granted" ? "ON" : "OFF";
 			};
 
 			ctx.effect(() => {
@@ -165,19 +167,17 @@ window.__ModuleLoader__.load({
 					ui: {
 						kind: "popupSelect",
 						options: async () => [
-							{ id: "on", label: `${statusLabel()} → ON にする`, description: "通知を許可し、購読を登録する" },
-							{ id: "off", label: `${statusLabel()} → OFF にする`, description: "購読を解除し、通知を止める" }
+							{ id: "on", label: `ON にする`, description: `現在: ${statusLabel()} / 通知を許可し、購読を登録する` },
+							{ id: "off", label: `OFF にする`, description: `現在: ${statusLabel()} / 購読を解除し、通知を止める` }
 						],
 						onSelect: async (option) => {
 							if (option.id === "on") {
 								const permission = await Notification.requestPermission();
 								if (permission !== "granted") throw new Error("通知の許可が得られませんでした (ブラウザ設定を確認)");
 								await subscribePush();
-								notifying = true;
 								if (typeof localStorage !== "undefined") localStorage.setItem(STATE_KEY, "on");
 							} else {
 								await unsubscribePush();
-								notifying = false;
 								if (typeof localStorage !== "undefined") localStorage.setItem(STATE_KEY, "off");
 							}
 						}

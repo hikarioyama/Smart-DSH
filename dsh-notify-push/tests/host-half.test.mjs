@@ -31,7 +31,14 @@ const ctx = {
   },
   effect(fn, label) { const d = fn(); effects.push(label); return d; },
   inject(names, fn) {
-    const scope = { get: (name) => services.get(name), connection: services.get("connection"), effect: (e, l) => e(), inject: this.inject, webServer: fakeWebServer };
+    const scope = {
+      get: (name) => services.get(name),
+      connection: services.get("connection"),
+      effect: (e, l) => e(),
+      inject: this.inject,
+      webServer: fakeWebServer,
+      on: (name, listener, options) => ctx.on(name, listener, options)
+    };
     fn(scope);
   },
   webServer: fakeWebServer

@@ -32,7 +32,7 @@ ask_user_question (tool)
 
 | Component | File | Role |
 |---|---|---|
-| Host half | `dsh-notify-push/lib/index.js` | prepended waterfall listener + Web Push fan-out + HTTP routes (`/api/push/*` authed via `connection.requestRejection`, `/push/sw.js` static with `Service-Worker-Allowed: /`) |
+| Host half | `dsh-notify-push/lib/index.js` | prepended `user-questions/request` waterfall listener + `session/event` (`turn/end`) listener (root sessions only) + Web Push fan-out + HTTP routes (`/api/push/*` authed via `connection.requestRejection`, `/push/sw.js` static with `Service-Worker-Allowed: /`) |
 | Client half | `dsh-notify-push/lib/client.js` | `window.__ModuleLoader__.load({...})` wrapper; local `Notification` while the page is alive; `/notify` popupSelect command for permission + push subscribe/unsubscribe |
 | Service worker | `dsh-notify-push/sw/sw.js` | `push` → `showNotification` (`requireInteraction: true`), `notificationclick` → focus/open window |
 | State | `$DSH_HOME/notify-push/` (0600, **not in this repo**) | `vapid.json` (generated on first start, must persist across restarts) + `subscriptions.json` (auto-pruned on 404/410) |

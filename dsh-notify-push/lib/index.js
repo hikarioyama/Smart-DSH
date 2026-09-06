@@ -61,6 +61,21 @@ function saveSubscriptions(list) {
 	atomicWriteJson(SUBSCRIPTIONS_PATH, list);
 }
 
+/** Build the notification payload for one root-session turn end. */
+function buildTurnEndPayload(sessionId, reason) {
+	const kind = typeof reason?.kind === "string" ? reason.kind : "unknown";
+	const titles = {
+		completed: "DSH: 返信完了",
+		"max-tokens": "DSH: 返信完了 (トークン上限で切り詰め)",
+		blocked: "DSH: 停止 (要求が拒否されました)",
+		error: "DSH: エラーで停止",
+		aborted: "DSH: 停止 (中断されました)"
+	};
+	const title = titles[kind] ?? `DSH: ターン終了 (${kind})`;
+	const body = kind === "completed" ? "返信が完了しました。結果を確認してください。" : `終了理由: ${kind}`;
+	return { title, body, url: `/?session=${encodeURIComponent(sessionId)}` };
+}
+
 /** Build the notification payload from one forwarded user-questions request. */
 function buildPayload(request) {
 	const questions = Array.isArray(request?.questions) ? request.questions : [];
@@ -120,6 +135,19 @@ function apply(ctx) {
 			saveSubscriptions(loadSubscriptions().filter((entry) => !stale.includes(entry.endpoint)));
 		}
 	}
+
+	ctx.inject(["agents"], (agentCtx) => {
+		const agents = agentCtx.get("agents");
+		agentCtx.on("session/event", (session, event) => {
+			if (event?.type !== "turn/end") return;
+			// Root (top-level) sessions only: a subagent finishing must not notify.
+			const agent = agents?.get(session.id);
+			if (agent === void 0 || !agents.roots().includes(agent)) return;
+			void sendPushToAll(buildTurnEndPayload(session.id, event.data?.reason)).catch((error) => {
+				console.error("notify-push: turn-end push failed", error);
+			});
+		});
+	});
 
 	ctx.effect(() => ctx.on("user-questions/request", function(request, next) {
 		// Outermost listener (prepended): fire-and-forget push, then delegate.

@@ -65,14 +65,14 @@ function saveSubscriptions(list) {
 function buildTurnEndPayload(sessionId, reason) {
 	const kind = typeof reason?.kind === "string" ? reason.kind : "unknown";
 	const titles = {
-		completed: "DSH: 返信完了",
-		"max-tokens": "DSH: 返信完了 (トークン上限で切り詰め)",
+		completed: "DSH: 作業完了",
+		"max-tokens": "DSH: 作業完了 (トークン上限で切り詰め)",
 		blocked: "DSH: 停止 (要求が拒否されました)",
 		error: "DSH: エラーで停止",
 		aborted: "DSH: 停止 (中断されました)"
 	};
 	const title = titles[kind] ?? `DSH: ターン終了 (${kind})`;
-	const body = kind === "completed" ? "返信が完了しました。結果を確認してください。" : `終了理由: ${kind}`;
+	const body = kind === "completed" ? "作業が完了しました。結果を確認してください。" : `終了理由: ${kind}`;
 	return { title, body, url: `/?session=${encodeURIComponent(sessionId)}` };
 }
 

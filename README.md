@@ -5,7 +5,7 @@ bundle (`dsh-notify-push`) plus setup notes for the paired remote-access infrast
 (Tailscale Serve + phone). When the agent calls `ask_user_question`, your phone receives
 a Web Push notification with the question text — **even when no browser is connected**.
 When a turn ends, you get a completion notification whose title reflects the end reason
-(`返信完了` / token-cap truncation / blocked / error / aborted); subagent turns do not
+(`作業完了` / token-cap truncation / blocked / error / aborted); subagent turns do not
 notify — only top-level sessions. Tapping a notification focuses the app.
 
 > Status: working setup on Arch Linux, verified 2026-09-07 with real deliveries to

@@ -115,7 +115,68 @@ window.__ModuleLoader__.load({
 
 		const inject = ["remote", "commandUi"];
 
+
+		// DSH 0.1.2-rc.1 CSS-module selectors: fail closed to upstream layout if changed.
+		function installMobileRail(ctx) {
+			if (typeof document === "undefined") return;
+			ctx.effect(() => {
+				const media = window.matchMedia("(max-width: 767px)");
+				const root = document.documentElement;
+				const style = document.createElement("style");
+				style.dataset.smartDshMobile = "true";
+				style.textContent = `
+@media (max-width: 767px) {
+ html[data-smart-rail="closed"] .pI_x6G_frame[data-sidebar-collapsed] { grid-template-columns: 0px minmax(0,1fr) 0px !important; }
+ html[data-smart-rail="closed"] .pI_x6G_frame[data-sidebar-collapsed] > .pI_x6G_centerCol { grid-column:2; grid-row:1; }
+ html[data-smart-rail="closed"] .pI_x6G_frame[data-sidebar-collapsed] > .pI_x6G_detailsCol { grid-column:3; grid-row:1; }
+ html[data-smart-rail="closed"] .pI_x6G_frame[data-sidebar-collapsed] > .pI_x6G_sidebarCol { position:absolute; top:0; left:0; width:56px; height:64px; z-index:10; border:0; }
+ html[data-smart-rail="closed"] .pI_x6G_frame[data-sidebar-collapsed] .hHd-Xa_root { height:64px; }
+ html[data-smart-rail="closed"] .pI_x6G_frame[data-sidebar-collapsed] .hHd-Xa_newSession,
+ html[data-smart-rail="closed"] .pI_x6G_frame[data-sidebar-collapsed] .hHd-Xa_regionArea,
+ html[data-smart-rail="closed"] .pI_x6G_frame[data-sidebar-collapsed] .hHd-Xa_footArea { display:none; }
+ html[data-smart-rail="closed"] .pI_x6G_frame[data-sidebar-collapsed] .wSkVaW_header:not([aria-hidden="true"]) { padding-left:64px; }
+ html[data-smart-rail] .hHd-Xa_collapsed .hHd-Xa_toggle .hHd-Xa_railMark { display:inline-flex !important; }
+ html[data-smart-rail] .hHd-Xa_collapsed .hHd-Xa_toggle .hHd-Xa_panelIcon { display:none !important; }
+ /* Only the mobile logo: no tooltip, sticky hover tint, or Android tap flash. */
+ html[data-smart-rail] .hHd-Xa_toggle,
+ html[data-smart-rail] .hHd-Xa_toggle:is(:hover,:active,:focus) { color:var(--dsw-alias-label-primary) !important; background:transparent !important; -webkit-tap-highlight-color:transparent; }
+ html[data-smart-rail] .hHd-Xa_toggle * { -webkit-tap-highlight-color:transparent; }
+ html[data-smart-rail]:has(.hHd-Xa_toggle:is(:hover,:focus)) [role="tooltip"] { display:none !important; }
+
+}`;
+				document.head.appendChild(style);
+				const reset = () => {
+					if (media.matches) root.dataset.smartRail = "closed";
+					else delete root.dataset.smartRail;
+				};
+				const click = (event) => {
+					if (!media.matches || !(event.target instanceof Element)) return;
+					const button = event.target.closest(".hHd-Xa_toggle");
+					if (!button?.closest(".pI_x6G_frame[data-sidebar-collapsed]")) return;
+					// Keep upstream collapsed-rail state; desktop toggle is never intercepted.
+					event.preventDefault();
+					event.stopImmediatePropagation();
+					const open = root.dataset.smartRail !== "open";
+					root.dataset.smartRail = open ? "open" : "closed";
+					button.setAttribute("aria-expanded", String(open));
+				};
+				const escape = (event) => {
+					if (media.matches && event.key === "Escape") reset();
+				};
+				reset();
+				media.addEventListener("change", reset);
+				document.addEventListener("click", click, true);
+				document.addEventListener("keydown", escape);
+				return () => {
+					style.remove(); delete root.dataset.smartRail;
+					media.removeEventListener("change", reset);
+					document.removeEventListener("click", click, true);
+					document.removeEventListener("keydown", escape);
+				};
+			}, "smart-dsh: mobile rail");
+		}
 		function apply(ctx) {
+			installMobileRail(ctx);
 
 			/** Outermost listener: local notification + delegate to the real answerer. */
 			ctx.remote.$on("user-questions/request", function(request, next) {

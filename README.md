@@ -1,4 +1,16 @@
-# Smart-DSH — Web Push notifications for DSH `ask_user_question` + turn completion
+# Smart-DSH — Mobile UI and notifications for DeepSeek Harness
+
+An unofficial **DSH plugin bundle and Linux setup guide**, not a fork of DSH.
+Keep upstream DSH installed; add Smart-DSH for:
+
+- **Mobile UI:** full-width chat and composer, logo-toggled icon rail, no logo tooltip or tap tint.
+- **Notifications:** questions and top-level turn-end notifications through Web Push.
+- **Remote access guide:** connect a phone using tailnet-only Tailscale Serve HTTPS.
+
+This is an unofficial community extension; it is not affiliated with DeepSeek.
+Compatibility is tested against DSH `0.1.2-rc.1`; mobile styles use version-specific
+selectors. Turn-end notifications describe agent turn termination, not independent
+verification that every requested task succeeded.
 
 A self-contained [DeepSeek Harness (DSH)](https://github.com/deepseek-ai/deepseek-harness)
 bundle (`dsh-notify-push`) plus setup notes for the paired remote-access infrastructure
@@ -186,3 +198,16 @@ What it covers:
 
 The knowledge-graph node mirroring this repo:
 `~/knowledge/nodes/agents/dsh-notify-push-bundle-pattern.md`.
+
+## Mobile layout (DSH 0.1.2-rc.1)
+
+At viewport widths up to 767 CSS pixels, the collapsed sidebar occupies only the
+logo corner; the chat column uses the full viewport width. Tap the DeepSeek logo
+to show the original icon rail; tap again to hide it. Desktop layout is unchanged.
+Upstream expanded sidebar panels retain their normal behavior. CSS-module selectors
+are version-specific: recheck after a DSH upgrade. No notification logic is changed.
+
+Browser regression check against an existing DSH server (does not start/restart DSH):
+`PLAYWRIGHT_MODULE=/path/to/playwright DSH_LOGIN_URL_FILE=/path/to/private-login-url.txt node scripts/test-mobile-layout.cjs`.
+Uses isolated browser contexts, verifies 360/412/767/768/1280 CSS-pixel widths, toggle
+round trips and cleanup. The login URL file must be private; never commit it.

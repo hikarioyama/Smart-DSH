@@ -6,6 +6,7 @@ Keep upstream DSH installed; add Smart-DSH for:
 - **Mobile UI:** full-width chat and composer, logo-toggled icon rail, no logo tooltip or tap tint.
 - **Notifications:** questions and top-level turn-end notifications through Web Push.
 - **Remote access guide:** connect a phone using tailnet-only Tailscale Serve HTTPS.
+- **Multi-tab reliability:** an optional, guarded [shared-HMR workaround](patches/dsh-client-hmr-0.1.2-rc.1/README.md) prevents upstream developer-update connections from exhausting Firefox's HTTP/1.1 connection slots.
 
 This is an unofficial community extension; it is not affiliated with DeepSeek.
 Compatibility is tested against DSH `0.1.2-rc.1`; mobile styles use version-specific
@@ -101,6 +102,29 @@ systemctl --user restart dsh-web.service
 Expected result: `~/.dsh/notify-push/vapid.json` + `subscriptions.json` appear on first
 start; each enabled device appears as one subscription; asking the agent a question that
 triggers `ask_user_question` produces a notification on every enabled device.
+
+## Fresh tabs show “No sessions yet”
+
+On DSH `0.1.2-rc.1`, upstream `client-hmr` opens a permanent developer-update
+connection for each tab. Enough tabs can exhaust a browser's HTTP/1.1 slots,
+preventing fresh session-list requests and WebSocket handshakes. This is unrelated
+to the `dsh-notify-push` notification plugin and does not mean sessions were deleted.
+
+Smart-DSH includes a version- and checksum-guarded workaround that shares one HMR
+connection across tabs. From this checkout:
+
+```bash
+node scripts/apply-shared-hmr.cjs --check  # read-only; resolves the dsh on PATH
+node scripts/apply-shared-hmr.cjs --apply  # explicit write with a private backup
+node --test scripts/test-shared-hmr.cjs scripts/test-apply-shared-hmr.cjs
+```
+
+It does not restart DSH or alter browser preferences/session data. Unknown versions
+or existing local edits are rejected. This is a separate, optional install step;
+copying only `dsh-notify-push` does not apply it. See the
+[workaround guide](patches/dsh-client-hmr-0.1.2-rc.1/README.md) for explicit paths,
+rollback, browser requirements, live-update limitations, and rechecking after DSH
+upgrades.
 
 ## Paired infrastructure (remote access + phone)
 

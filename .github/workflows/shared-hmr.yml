@@ -1,0 +1,29 @@
+name: Shared HMR regression tests
+
+on:
+  push:
+    paths:
+      - 'patches/dsh-client-hmr-0.1.2-rc.1/**'
+      - 'scripts/*shared-hmr.cjs'
+      - '.github/workflows/shared-hmr.yml'
+  pull_request:
+    paths:
+      - 'patches/dsh-client-hmr-0.1.2-rc.1/**'
+      - 'scripts/*shared-hmr.cjs'
+      - '.github/workflows/shared-hmr.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: ['22.19.0', '24']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: node --test scripts/test-shared-hmr.cjs scripts/test-apply-shared-hmr.cjs

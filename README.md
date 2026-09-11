@@ -1,10 +1,11 @@
-# Smart-DSH — Mobile UI and notifications for DeepSeek Harness
+# Smart-DSH — Mobile UI, notifications, and Esc-to-stop for DeepSeek Harness
 
 An unofficial **DSH plugin bundle and Linux setup guide**, not a fork of DSH.
 Keep upstream DSH installed; add Smart-DSH for:
 
 - **Mobile UI:** full-width chat and composer, logo-toggled icon rail, no logo tooltip or tap tint.
 - **Notifications:** questions and top-level turn-end notifications through Web Push.
+- **Esc to stop:** press Escape to cancel the running turn, switchable from Settings → General.
 - **Remote access guide:** connect a phone using tailnet-only Tailscale Serve HTTPS.
 - **Multi-tab reliability:** an optional, guarded [shared-HMR workaround](patches/dsh-client-hmr-0.1.2-rc.1/README.md) prevents upstream developer-update connections from exhausting Firefox's HTTP/1.1 connection slots.
 
@@ -20,6 +21,12 @@ a Web Push notification with the question text — **even when no browser is con
 When a turn ends, you get a completion notification whose title reflects the end reason
 (`作業完了` / token-cap truncation / blocked / error / aborted); subagent turns do not
 notify — only top-level sessions. Tapping a notification focuses the app.
+
+A second, dependency-free bundle (`dsh-esc-stop`) adds the keyboard gesture the
+composer's stop button already performs: Escape cancels the turn that is running now.
+Menus, dialogs, the queue-message editor, and IME composition keep their own Escape,
+and the whole gesture has one ON/OFF row in Settings → General — no file editing and no
+restart to toggle it. See [Esc-to-stop](#esc-to-stop-dsh-esc-stop).
 
 > Status: working setup on Arch Linux, verified 2026-09-07 with real deliveries to
 > Android Chrome and desktop Firefox. Host-specific identifiers are omitted from these setup examples.
@@ -126,6 +133,48 @@ copying only `dsh-notify-push` does not apply it. See the
 rollback, browser requirements, live-update limitations, and rechecking after DSH
 upgrades.
 
+## Esc-to-stop (dsh-esc-stop)
+
+Press **Escape** while the agent is working and the running turn is cancelled — the same
+cancellation the composer's **停止生成** button performs. ON by default, with one toggle
+in Settings → **General** → *Esc で推論を停止*; the value is the host setting
+`esc-stop.enabled` in the user settings document, so it follows the account across
+devices and toggling needs no file edit or restart.
+
+Escape is a shared key, so the listener refuses whenever a nearer surface owns it:
+
+| Refusal | Why |
+|---|---|
+| `Ctrl`/`Meta`/`Alt`/`Shift` held, or a key repeat | Browser/OS chords, and holding the key must not fire repeatedly |
+| IME composition | The input method owns the key |
+| `event.defaultPrevented` | A handler that already consumed Escape wins |
+| the target is a native `input`/`textarea`/`select` | The queue-message editor closes itself on Escape |
+| an `[aria-modal="true"]` element is open | The Settings panel owns Escape while it is open |
+| a `[role="listbox"]`/`[role="menu"]` element is open | The command menu, a popupSelect, or a picker owns Escape |
+| the toggle is OFF, nothing runs, the session was removed, or a subagent is on stage | Nothing to stop, and the button itself is absent in those states |
+
+The listener is capture-phase on `document` with a one-microtask deferred judgement, so
+Escape never closes a menu *and* stops the turn: a nearer handler's consumption, or the
+overlay it just closed, is read exactly once — after the key has been routed.
+
+The accepted path is the button's own (`sessions.scope(id).get("conversation").cancel()`),
+so failure presentation is identical: the message lands in the session's `promptError`.
+Stop cancels the in-flight turn only — queued messages stay and resume in FIFO order.
+
+Install is the same three steps as above with `dsh-esc-stop` substituted; the bundle has
+no runtime dependency of its own, so the extra `pnpm add` step does not apply:
+
+```bash
+BUNDLE_SRC="$HOME/.dsh/profiles/web/bundles-src/dsh-esc-stop"
+git clone https://github.com/hikarioyama/Smart-DSH.git /tmp/Smart-DSH
+mkdir -p "$(dirname "$BUNDLE_SRC")" && cp -r /tmp/Smart-DSH/dsh-esc-stop "$BUNDLE_SRC"
+cd ~/.dsh/profiles/web && dsh plugin --profile web add "$BUNDLE_SRC"
+dsh --profile web --dump-config | grep dsh-esc-stop   # read-only composition check
+systemctl --user restart dsh-web.service              # never from the session being restarted
+```
+
+Details, guard-by-guard rationale, and limitations: [`dsh-esc-stop/README.md`](dsh-esc-stop/README.md).
+
 ## Paired infrastructure (remote access + phone)
 
 Minimal, reproducible form — the `flock`/guard/URL-file plumbing in the author's setup
@@ -192,6 +241,14 @@ What it covers:
   `user-questions/request` listener passes `next()`'s value through, and that the
   `/notify` popupSelect contribution registers).
 
+`dsh-esc-stop` ships its own suite, which does cover the client half through the same
+ModuleLoader shim (decision guards, listener wiring, disposal, and the settings row):
+
+```bash
+cd dsh-esc-stop && npm install && npm test
+# expect: tests 14 / pass 14 / fail 0
+```
+
 ## Ops
 
 - Toggle: `/notify` ON/OFF per device. Revoking browser permission → auto re-subscribe
@@ -235,3 +292,22 @@ Browser regression check against an existing DSH server (does not start/restart 
 `PLAYWRIGHT_MODULE=/path/to/playwright DSH_LOGIN_URL_FILE=/path/to/private-login-url.txt node scripts/test-mobile-layout.cjs`.
 Uses isolated browser contexts, verifies 360/412/767/768/1280 CSS-pixel widths, toggle
 round trips and cleanup. The login URL file must be private; never commit it.
+
+## Esc-to-stop regression check
+
+`scripts/test-esc-stop.cjs` drives the shipped `dsh-esc-stop` listener inside a live DSH
+page (same private login URL input, no DSH restart):
+
+```bash
+PLAYWRIGHT_MODULE=/path/to/playwright \
+DSH_LOGIN_URL_FILE=/path/to/private-login-url.txt \
+node scripts/test-esc-stop.cjs
+```
+
+It asserts that the composed provider bundles (`dsh-api-session-controller`,
+`dsh-client-ui-renderer`, `dsh-client-ui-settings`) are present, then dispatches real
+`KeyboardEvent`s against stub sessions — one cancel on a running turn, and no cancel for
+idle, toggle-off, key repeat, modifier chords, an open modal, an open list overlay, a
+focused native input, an already-consumed key, disposal, and the named refusal reason. Stub sessions mean no real
+turn is cancelled; the whole bundle is also loaded into the page to prove it parses and
+registers with `__ModuleLoader__`. The login URL file must be private; never commit it.

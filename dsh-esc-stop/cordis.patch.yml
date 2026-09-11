@@ -1,0 +1,9 @@
+# Esc-to-stop (dsh-esc-stop)
+#
+# One host entry carrying both faces: the host half registers the `esc-stop`
+# settings namespace, and package.json's dsh.client metadata contributes the
+# browser listener plus the General-settings toggle row.
+
+- insert:
+    - id: dsh-esc-stop
+      name: dsh-esc-stop

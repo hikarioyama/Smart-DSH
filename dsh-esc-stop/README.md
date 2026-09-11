@@ -73,22 +73,36 @@ git clone https://github.com/hikarioyama/Smart-DSH.git /tmp/Smart-DSH
 mkdir -p "$(dirname "$BUNDLE_SRC")"
 cp -r /tmp/Smart-DSH/dsh-esc-stop "$BUNDLE_SRC"
 
-# 1. Register into the web profile (adds the dependency as link: AND appends
-#    dsh-esc-stop to dsh.profile.bundles via its dsh.bundle.patch declaration)
-cd ~/.dsh/profiles/web && dsh plugin --profile web add "$BUNDLE_SRC"
+# 1. Add the dependency to the profile. `-w` is required: the profile is a pnpm
+#    workspace root, and without it pnpm 11 refuses with ERR_PNPM_ADDING_TO_ROOT.
+cd ~/.dsh/profiles/web
+dsh plugin --profile web add "$BUNDLE_SRC" -w
 
-# 2. Verify composition read-only (never touches a running server)
+# 2. Register the bundle as a composition layer. `dsh plugin` only forwards to
+#    pnpm, so this list is what makes the bundle's cordis.patch.yml apply at boot.
+node - <<'NODE'
+const fs = require("fs");
+const path = process.env.HOME + "/.dsh/profiles/web/package.json";
+const manifest = JSON.parse(fs.readFileSync(path, "utf8"));
+const bundles = manifest.dsh.profile.bundles;
+if (!bundles.includes("dsh-esc-stop")) bundles.push("dsh-esc-stop");
+fs.writeFileSync(path, JSON.stringify(manifest, null, 2) + "\n");
+NODE
+
+# 3. Verify composition read-only (never touches a running server)
 dsh --profile web --dump-config | grep dsh-esc-stop   # expect: "- id: dsh-esc-stop"
 
-# 3. Restart so the profile boots the new bundle
+# 4. Restart so the profile boots the new bundle
 systemctl --user restart dsh-web.service
 ```
 
 > Restarting `dsh-web.service` interrupts the session running that command. Run
-> it from a terminal that is not hosting the agent you are talking to.
+> it from a terminal that is not hosting the agent you are talking to. Until that
+> restart the running server keeps its boot-time composition: neither the settings
+> row nor the listener exists yet, and `__DSH_BOOT__` does not name `dsh-esc-stop`.
 
 The bundle has no runtime dependency of its own (`@deepseek-ai/schemastery` is
-provided by the host composition), so step 1 needs no extra `pnpm add`, unlike
+provided by the host composition), so no extra `pnpm add` is needed, unlike
 `dsh-notify-push`.
 
 ## Testing

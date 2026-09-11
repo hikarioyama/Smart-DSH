@@ -161,17 +161,23 @@ The accepted path is the button's own (`sessions.scope(id).get("conversation").c
 so failure presentation is identical: the message lands in the session's `promptError`.
 Stop cancels the in-flight turn only — queued messages stay and resume in FIFO order.
 
-Install is the same three steps as above with `dsh-esc-stop` substituted; the bundle has
-no runtime dependency of its own, so the extra `pnpm add` step does not apply:
+Install is the same shape as the `dsh-notify-push` steps with `dsh-esc-stop` substituted,
+plus one extra registration step (the bundle has no runtime dependency of its own, so the
+extra `pnpm add` step does not apply). `dsh plugin` only forwards to pnpm and the profile
+is a pnpm workspace root, so the dependency needs `-w`; the layer list is edited directly:
 
 ```bash
 BUNDLE_SRC="$HOME/.dsh/profiles/web/bundles-src/dsh-esc-stop"
 git clone https://github.com/hikarioyama/Smart-DSH.git /tmp/Smart-DSH
 mkdir -p "$(dirname "$BUNDLE_SRC")" && cp -r /tmp/Smart-DSH/dsh-esc-stop "$BUNDLE_SRC"
-cd ~/.dsh/profiles/web && dsh plugin --profile web add "$BUNDLE_SRC"
+cd ~/.dsh/profiles/web && dsh plugin --profile web add "$BUNDLE_SRC" -w
+node -e 'const fs=require("fs"),p=process.env.HOME+"/.dsh/profiles/web/package.json",m=JSON.parse(fs.readFileSync(p,"utf8")),b=m.dsh.profile.bundles;if(!b.includes("dsh-esc-stop"))b.push("dsh-esc-stop");fs.writeFileSync(p,JSON.stringify(m,null,2)+"\n")'
 dsh --profile web --dump-config | grep dsh-esc-stop   # read-only composition check
 systemctl --user restart dsh-web.service              # never from the session being restarted
 ```
+
+Until that restart the running server keeps its boot-time composition: the settings row
+and the listener appear only afterwards.
 
 Details, guard-by-guard rationale, and limitations: [`dsh-esc-stop/README.md`](dsh-esc-stop/README.md).
 

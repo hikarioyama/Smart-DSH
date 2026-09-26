@@ -3,7 +3,7 @@
 An unofficial **DSH plugin bundle and Linux setup guide**, not a fork of DSH.
 Keep upstream DSH installed; add Smart-DSH for:
 
-- **Mobile UI:** full-width chat and composer, logo-toggled icon rail, no logo tooltip or tap tint.
+- **Mobile UI:** full-width chat and composer, logo opens the session list, no logo tooltip or tap tint.
 - **Notifications:** questions and top-level turn-end notifications through Web Push.
 - **Esc to stop:** press Escape to cancel the running turn, switchable from Settings → General.
 - **Remote access guide:** connect a phone using tailnet-only Tailscale Serve HTTPS.
@@ -290,7 +290,8 @@ The knowledge-graph node mirroring this repo:
 
 At viewport widths up to 767 CSS pixels, the collapsed sidebar occupies only the
 logo corner; the chat column uses the full viewport width. Tap the DeepSeek logo
-to show the original icon rail; tap again to hide it. Desktop layout is unchanged.
+to open the session list in one step, not the intermediate icon rail. Desktop
+layout is unchanged.
 Upstream expanded sidebar panels retain their normal behavior. CSS-module selectors
 are version-specific: recheck after a DSH upgrade. No notification logic is changed.
 

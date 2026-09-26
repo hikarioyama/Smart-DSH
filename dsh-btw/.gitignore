@@ -1,0 +1,13 @@
+node_modules/
+coverage/
+.vite/
+.env
+.env.*
+!.env.example
+*.log
+*.tgz
+.DS_Store
+btw-sidechains/
+artifacts/
+
+# lib/ is intentionally committed: DSH git installs do not run build scripts.

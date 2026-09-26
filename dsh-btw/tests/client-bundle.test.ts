@@ -39,5 +39,6 @@ describe('prebuilt client artifact', () => {
     for (const dispose of cleanup.reverse()) dispose()
     expect(first.state.getSnapshot()).toMatchObject({ open: false, busy: false })
     expect(code).not.toContain('dsh-client-runtime')
+    expect(code).toContain('MarkdownText')
   })
 })

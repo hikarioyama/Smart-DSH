@@ -58,9 +58,10 @@ The audit store is written but not read by the panel. The host exposes only
 Core storage and lifecycle logic have no DSH imports. Host APIs are isolated in
 `src/compat/`; browser input/layout adapters are in `src/client/compat/`, with a thin
 registration entry. The panel imports DSH's published UI primitives (`Button`,
-`Tooltip`, icons) and the composer's public design tokens, and renders answers as safe
-plain text (Markdown styling is not yet provided). No hashed upstream CSS-module class
-name is referenced.
+`Tooltip`, `MarkdownText`, icons) and the composer's public design tokens. Completed
+answers use the host `MarkdownText` renderer (GFM and TeX, raw HTML disabled, unsafe
+link protocols dropped). Questions, errors and the in-progress status stay plain text.
+No hashed upstream CSS-module class name is referenced.
 
 Model calls use public `LlmRuntime.prepareCall`. No private pi-ai cache manipulation
 is active in this candidate: caching is provider-managed, with no cache-saving promise.

@@ -112,10 +112,10 @@ new directory name, or the browser keeps receiving the previous client bytes.
    combined-addon runs load those plugins' code, but do not verify real push delivery
    or every keyboard interaction and setting in your daily profile.
 
-Current presentation renders answers as safe plain text inside a DSH-styled card;
-Markdown styling is still not provided. Actual provider output, quota/cache behavior
-and long-session performance need your test; a mock-provider browser pass is not a
-claim that those are verified.
+Completed answers render through the host `MarkdownText` primitive inside a DSH-styled
+card. Questions, errors and the in-progress line stay plain text. Actual provider
+output, quota/cache behavior and long-session performance need your test; a
+mock-provider browser pass is not a claim that those are verified.
 
 ## Disable / rollback
 

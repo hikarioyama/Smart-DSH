@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
-import { Button, IconBranchOutline16, IconCloseOutline16, IconSendOutline16, IconStopFill16, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconBranchOutline16, IconCloseOutline16, IconSendOutline16, IconStopFill16, MarkdownText, Tooltip, type MarkdownLabels } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { BtwController } from '../controller.js'
 import { BOOKMARK_BAR_PX, btwTopLimit, clampHeight, isPhoneViewport, transcriptHeightForTop } from './panel-bounds.js'
 
@@ -44,7 +44,12 @@ const caption = css({
   whiteSpace: 'nowrap',
 })
 const question = css({ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', fontWeight: 600 })
-const answer = css({ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', margin: '6px 0 0' })
+const answer = css({ overflowWrap: 'anywhere', margin: '6px 0 0' })
+/** Stable identity: MarkdownText drops its render cache when labels change. */
+const markdownLabels: MarkdownLabels = {
+  code: { copyLabel: 'Copy', copiedLabel: 'Copied' },
+  footnotes: 'Footnotes',
+}
 const storageKey = 'smart-dsh.btw.height.v1'
 
 export { clampHeight } from './panel-bounds.js'
@@ -71,7 +76,7 @@ function visibleHeight(): number {
 
 /** Local layout only: no hashed upstream CSS selectors or document listeners. */
 export function BtwOverlay({ controller, openChild, dockStyle }: BtwOverlayInjected) {
-  const state = useSyncExternalStore(controller.state.subscribe, controller.state.getSnapshot)
+  const state = useSyncExternalStore(controller.state.subscribe, controller.state.getSnapshot, controller.state.getSnapshot)
   const [height, setHeight] = useState(initialHeight)
   const [phone, setPhone] = useState(phoneLayout)
   const transcript = useRef<HTMLDivElement>(null)
@@ -162,7 +167,9 @@ export function BtwOverlay({ controller, openChild, dockStyle }: BtwOverlayInjec
               }).catch(e => setError(String(e))).finally(() => setForking(false)) }} />
           </Tooltip>}
         </div>
-        <div style={answer}>{t.answer ?? t.error ?? 'No completed result recorded (pending or interrupted)'}</div>
+        <div style={answer}>{t.answer !== undefined
+          ? <MarkdownText text={t.answer} labels={markdownLabels} />
+          : (t.error ?? 'No completed result recorded (pending or interrupted)')}</div>
       </article>)}
       {state.busy && <div role="status" style={{ ...caption, whiteSpace: 'pre-wrap' }}>{state.question}{'\n'}Answering independently…</div>}
     </div>

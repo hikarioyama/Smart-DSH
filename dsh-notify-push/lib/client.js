@@ -149,29 +149,14 @@ window.__ModuleLoader__.load({
 					if (media.matches) root.dataset.smartRail = "closed";
 					else delete root.dataset.smartRail;
 				};
-				const click = (event) => {
-					if (!media.matches || !(event.target instanceof Element)) return;
-					const button = event.target.closest(".hHd-Xa_toggle");
-					if (!button?.closest(".pI_x6G_frame[data-sidebar-collapsed]")) return;
-					// Keep upstream collapsed-rail state; desktop toggle is never intercepted.
-					event.preventDefault();
-					event.stopImmediatePropagation();
-					const open = root.dataset.smartRail !== "open";
-					root.dataset.smartRail = open ? "open" : "closed";
-					button.setAttribute("aria-expanded", String(open));
-				};
-				const escape = (event) => {
-					if (media.matches && event.key === "Escape") reset();
-				};
+				// Do not intercept the logo click. On a phone that button is the
+				// collapsed-sidebar toggle; letting it through opens the session list
+				// in one step instead of the intermediate icon rail.
 				reset();
 				media.addEventListener("change", reset);
-				document.addEventListener("click", click, true);
-				document.addEventListener("keydown", escape);
 				return () => {
 					style.remove(); delete root.dataset.smartRail;
 					media.removeEventListener("change", reset);
-					document.removeEventListener("click", click, true);
-					document.removeEventListener("keydown", escape);
 				};
 			}, "smart-dsh: mobile rail");
 		}

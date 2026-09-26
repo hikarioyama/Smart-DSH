@@ -1,0 +1,54 @@
+{
+  "pluginVersion": "0.3.0",
+  "validatedOn": "2026-09-12",
+  "timezone": "Asia/Shanghai",
+  "platform": "win32",
+  "node": "24.16.0",
+  "pnpm": "11.21.0",
+  "codeSha256": {
+    "lib/index.js": "9223f92d83c57e09ebc9229b5836e1e9a720c64dbc61ed94dfd463788f489fe0",
+    "lib/client.js": "9610ef202594ee76bcaf78b53451bd1c86c6064df4534b0a166cf0a4ee626d8f"
+  },
+  "frozenLockfileInstall": "passed",
+  "typecheck": "passed",
+  "build": "passed",
+  "testFilesPassed": 9,
+  "testsPassed": 22,
+  "diffCheck": "passed",
+  "profileChecks": {
+    "0.1.5-rc.1": {
+      "install": "passed",
+      "composedEntry": "passed",
+      "start": "passed",
+      "unauthenticatedRejected": "passed",
+      "authenticatedRpc": "passed",
+      "uninstall": "passed"
+    },
+    "0.1.5-rc.2": {
+      "install": "passed",
+      "composedEntry": "passed",
+      "start": "passed",
+      "unauthenticatedRejected": "passed",
+      "authenticatedRpc": "passed",
+      "uninstall": "passed"
+    }
+  },
+  "userReportedAcceptance": {
+    "date": "2026-09-12",
+    "dsh": "0.1.5-rc.1",
+    "platform": "win32",
+    "result": "actual use passed, reported by user",
+    "source": "user report; not an automated provider test",
+    "providerAndDetailedCases": "not supplied"
+  },
+  "notValidatedByAutomatedChecks": [
+    "real-provider generation",
+    "manual browser interaction",
+    "live-provider cache behavior",
+    "rollback",
+    "Node.js 22",
+    "macOS and Linux",
+    "alpha releases"
+  ],
+  "marketplaceApproval": "not-claimed"
+}

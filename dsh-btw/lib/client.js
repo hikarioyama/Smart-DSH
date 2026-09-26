@@ -360,10 +360,17 @@ const question = css({
 	fontWeight: 600
 });
 const answer = css({
-	whiteSpace: "pre-wrap",
 	overflowWrap: "anywhere",
 	margin: "6px 0 0"
 });
+/** Stable identity: MarkdownText drops its render cache when labels change. */
+const markdownLabels = {
+	code: {
+		copyLabel: "Copy",
+		copiedLabel: "Copied"
+	},
+	footnotes: "Footnotes"
+};
 const storageKey = "smart-dsh.btw.height.v1";
 function initialHeight() {
 	try {
@@ -391,7 +398,7 @@ function visibleHeight() {
 }
 /** Local layout only: no hashed upstream CSS selectors or document listeners. */
 function BtwOverlay({ controller, openChild, dockStyle: dockStyle$1 }) {
-	const state = (0, react.useSyncExternalStore)(controller.state.subscribe, controller.state.getSnapshot);
+	const state = (0, react.useSyncExternalStore)(controller.state.subscribe, controller.state.getSnapshot, controller.state.getSnapshot);
 	const [height, setHeight] = (0, react.useState)(initialHeight);
 	const [phone, setPhone] = (0, react.useState)(phoneLayout);
 	const transcript = (0, react.useRef)(null);
@@ -606,7 +613,10 @@ function BtwOverlay({ controller, openChild, dockStyle: dockStyle$1 }) {
 						})]
 					}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 						style: answer,
-						children: t.answer ?? t.error ?? "No completed result recorded (pending or interrupted)"
+						children: t.answer !== void 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(__deepseek_ai_dsh_client_ui_primitives.MarkdownText, {
+							text: t.answer,
+							labels: markdownLabels
+						}) : t.error ?? "No completed result recorded (pending or interrupted)"
 					})]
 				}, t.id)), state.busy && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 					role: "status",

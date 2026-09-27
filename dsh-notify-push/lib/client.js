@@ -142,6 +142,47 @@ window.__ModuleLoader__.load({
  html[data-smart-rail] .hHd-Xa_toggle:is(:hover,:active,:focus) { color:var(--dsw-alias-label-primary) !important; background:transparent !important; -webkit-tap-highlight-color:transparent; }
  html[data-smart-rail] .hHd-Xa_toggle * { -webkit-tap-highlight-color:transparent; }
  html[data-smart-rail]:has(.hHd-Xa_toggle:is(:hover,:focus)) [role="tooltip"] { display:none !important; }
+  /* Upstream content width floors at 680px. On a narrow phone that card is
+     wider than the viewport, so size it from the column instead of pixels. */
+  .pI_x6G_centerCol,
+  .wSkVaW_root {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: clip;
+  }
+  .wSkVaW_root {
+    --dsh-chat-user-width: 100% !important;
+    --dsh-chat-content-width: 100% !important;
+    --dsh-composer-card-max-width: 100% !important;
+  }
+  [data-question-key],
+  [data-plan-review-key] {
+    box-sizing: border-box;
+    align-self: stretch;
+    width: 100%;
+    max-width: min(100%, 95vw);
+    min-width: 0;
+    padding-left: 2.5%;
+    padding-right: 2.5%;
+    overflow-wrap: anywhere;
+  }
+  [data-question-key] > :first-child,
+  [data-plan-review-key] > :first-child {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+  [data-question-key] footer,
+  [data-plan-review-key] footer {
+    width: 100%;
+    flex-wrap: wrap;
+    min-width: 0;
+    max-width: 100%;
+    row-gap: 8px;
+  }
+
 
 }`;
 				document.head.appendChild(style);

@@ -290,7 +290,9 @@ The knowledge-graph node mirroring this repo:
 
 At viewport widths up to 767 CSS pixels, the collapsed sidebar occupies only the
 logo corner; the chat column uses the full viewport width. Tap the DeepSeek logo
-to open the session list in one step, not the intermediate icon rail. Desktop
+to open the session list in one step, not the intermediate icon rail. Question
+and plan cards use the column width (`100%`) instead of the 680px content floor,
+with `2.5%` side padding, so a narrow phone does not clip either edge. Desktop
 layout is unchanged.
 Upstream expanded sidebar panels retain their normal behavior. CSS-module selectors
 are version-specific: recheck after a DSH upgrade. No notification logic is changed.

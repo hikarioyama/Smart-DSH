@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-process.env.DSH_HOME = mkdtempSync(join(tmpdir(), "dsh-omp-tasks-"));
+process.env.DSH_HOME = mkdtempSync(join(tmpdir(), "dsh-tasks-"));
 
 const hooks = new Map();
 const commands = [];
@@ -96,7 +96,7 @@ function command(name) {
 test("slash command and view route register, default is off", async () => {
 	assert.equal(command("subagents").name, "subagents");
 	assert.equal(command("subagents").description, "usage: /subagents on|off|status");
-	assert.equal(routes.has("/api/omp-tasks/view"), true);
+	assert.equal(routes.has("/api/tasks/view"), true);
 	const status = await command("subagents").handler({ agent: parent, rawInput: "status" });
 	assert.equal(status.kind, "success");
 	assert.match(status.text, /off/);
@@ -122,7 +122,7 @@ test("on installs task and off removes it without deleting the ledger", async ()
 	assert.equal(on.kind, "success");
 	assert.equal(parent.ctx.toolsMap.has("task"), true);
 	assert.equal(parent.ctx.toolsMap.has("hub"), false);
-	const ledger = join(process.env.DSH_HOME, "omp-tasks", "ledger.jsonl");
+	const ledger = join(process.env.DSH_HOME, "tasks", "ledger.jsonl");
 	assert.equal(existsSync(ledger), true);
 	const before = readFileSync(ledger, "utf8");
 	const off = await command("subagents").handler({ agent: parent, rawInput: "off" });
@@ -142,15 +142,15 @@ test("worker without paths does not start a child", async () => {
 });
 
 test("view route refuses an anonymous request and an empty session", async () => {
-	const route = routes.get("/api/omp-tasks/view");
+	const route = routes.get("/api/tasks/view");
 	const denied = capture();
-	await route.handler({ headers: {}, url: "/api/omp-tasks/view?session=parent-1" }, denied.res);
+	await route.handler({ headers: {}, url: "/api/tasks/view?session=parent-1" }, denied.res);
 	assert.equal(denied.status, 401);
 	const bad = capture("ok");
-	await route.handler({ headers: { cookie: "ok" }, url: "/api/omp-tasks/view" }, bad.res);
+	await route.handler({ headers: { cookie: "ok" }, url: "/api/tasks/view" }, bad.res);
 	assert.equal(bad.status, 400);
 	const ok = capture("ok");
-	await route.handler({ headers: { cookie: "ok" }, url: "/api/omp-tasks/view?session=parent-1" }, ok.res);
+	await route.handler({ headers: { cookie: "ok" }, url: "/api/tasks/view?session=parent-1" }, ok.res);
 	assert.equal(ok.status, 200);
 	assert.equal(typeof ok.body.enabled, "boolean");
 	assert.ok(Array.isArray(ok.body.live));
@@ -195,12 +195,12 @@ test("spawn asks for maxDepth 1 so the first child is not rejected", async () =>
 
 test("a stored sub model is passed to the child and a toggle keeps it", async () => {
 	await command("subagents").handler({ agent: parent, rawInput: "on" });
-	const route = routes.get("/api/omp-tasks/sub-model");
+	const route = routes.get("/api/tasks/sub-model");
 	const saved = capture("ok");
 	await route.handler({
 		method: "POST",
 		headers: { cookie: "ok" },
-		url: "/api/omp-tasks/sub-model?session=parent-1&provider=xai&model=grok-4"
+		url: "/api/tasks/sub-model?session=parent-1&provider=xai&model=grok-4"
 	}, saved.res);
 	assert.equal(saved.status, 200);
 	assert.deepEqual(saved.body.subModel, { provider: "xai", model: "grok-4" });
@@ -230,7 +230,7 @@ test("a stored sub model is passed to the child and a toggle keeps it", async ()
 		ctx.subagents.startContinuable = previousSub;
 	}
 	await command("subagents").handler({ agent: parent, rawInput: "off" });
-	const file = JSON.parse(readFileSync(join(process.env.DSH_HOME, "omp-tasks", "sessions", "parent-1.json"), "utf8"));
+	const file = JSON.parse(readFileSync(join(process.env.DSH_HOME, "tasks", "sessions", "parent-1.json"), "utf8"));
 	assert.equal(file.enabled, false);
 	assert.deepEqual(file.subModel, { provider: "xai", model: "grok-4" });
 });

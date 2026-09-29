@@ -7,7 +7,7 @@ Keep upstream DSH installed; add Smart-DSH for:
 - **Notifications:** questions and top-level turn-end notifications through Web Push.
 - **Esc to stop:** press Escape to cancel the running turn, switchable from Settings → General.
 - **Remote access guide:** connect a phone using tailnet-only Tailscale Serve HTTPS.
-- **Subagent task delegation:** OMP-style roles (worker / explorer / hacker / reviewer), a sibling hub with durable logs, and a subagent conversation tab.
+- **Subagent task delegation:** roles with one exclusive verb each (worker / explorer / hacker / reviewer), a sibling hub with durable logs, and a subagent conversation tab.
 - **OpenCode Go model catalog:** keep the `llm-pi-ai` OpenCode Go route current with every model the subscription actually serves (scripts + guide).
 - **Multi-tab reliability:** an optional, guarded [shared-HMR workaround](patches/dsh-client-hmr-0.1.2-rc.1/README.md) prevents upstream developer-update connections from exhausting Firefox's HTTP/1.1 connection slots.
 
@@ -183,7 +183,7 @@ and the listener appear only afterwards.
 
 Details, guard-by-guard rationale, and limitations: [`dsh-esc-stop/README.md`](dsh-esc-stop/README.md).
 
-## Subagent task delegation (dsh-omp-tasks)
+## Subagent task delegation (dsh-tasks)
 
 The parent agent spawns named subagents with one exclusive verb each — `worker`
 (edits only the paths the assignment names, then checks them), `explorer`
@@ -196,7 +196,7 @@ is refused by the harness.
 Reports flow through a sibling hub as one-line `MiL` facts addressed to a living
 roster id; prose reports are rejected (`report:=∅ ∵ ¬MiL`) and the child is nudged
 once to restate. They land in a **subagent conversation tab** in the web UI, and
-task logs persist under `$DSH_HOME/omp-tasks/`. `ask_user_question` inside a child
+task logs persist under `$DSH_HOME/tasks/`. `ask_user_question` inside a child
 is refused and logged, so a child can never stall on a question it cannot see the
 answer to; subagent turns do not notify.
 
@@ -204,20 +204,20 @@ Install (no runtime dependency — the `pnpm add` step that `dsh-notify-push` ne
 does not apply; the `-w` flag is because the profile is a pnpm workspace root):
 
 ```bash
-BUNDLE_SRC="$HOME/.dsh/profiles/web/bundles-src/dsh-omp-tasks"
+BUNDLE_SRC="$HOME/.dsh/profiles/web/bundles-src/dsh-tasks"
 git clone https://github.com/hikarioyama/Smart-DSH.git /tmp/Smart-DSH
-mkdir -p "$(dirname "$BUNDLE_SRC")" && cp -r /tmp/Smart-DSH/dsh-omp-tasks "$BUNDLE_SRC"
+mkdir -p "$(dirname "$BUNDLE_SRC")" && cp -r /tmp/Smart-DSH/dsh-tasks "$BUNDLE_SRC"
 cd ~/.dsh/profiles/web && dsh plugin --profile web add "$BUNDLE_SRC" -w
-node -e 'const fs=require("fs"),p=process.env.HOME+"/.dsh/profiles/web/package.json",m=JSON.parse(fs.readFileSync(p,"utf8")),b=m.dsh.profile.bundles;if(!b.includes("dsh-omp-tasks"))b.push("dsh-omp-tasks");fs.writeFileSync(p,JSON.stringify(m,null,2)+"
+node -e 'const fs=require("fs"),p=process.env.HOME+"/.dsh/profiles/web/package.json",m=JSON.parse(fs.readFileSync(p,"utf8")),b=m.dsh.profile.bundles;if(!b.includes("dsh-tasks"))b.push("dsh-tasks");fs.writeFileSync(p,JSON.stringify(m,null,2)+"
 ")'
-dsh --profile web --dump-config | grep dsh-omp-tasks   # read-only composition check
+dsh --profile web --dump-config | grep dsh-tasks   # read-only composition check
 systemctl --user restart dsh-web.service              # never from the session being restarted
 ```
 
 The unit suite (25 tests: tool policy, the MiL reporter, both bundle halves)
 resolves its DSH imports through the profile's hoisted `@deepseek-ai/*`, so it runs
 from `$BUNDLE_SRC` after registration — a bare clone shows `ERR_MODULE_NOT_FOUND`.
-Details: [`dsh-omp-tasks/README.md`](dsh-omp-tasks/README.md).
+Details: [`dsh-tasks/README.md`](dsh-tasks/README.md).
 
 ## OpenCode Go model catalog (opencode-go/)
 

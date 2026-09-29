@@ -39,7 +39,7 @@ import {
 } from "./coordinator.js";
 
 const watched = new WeakSet();
-const name = "omp-tasks";
+const name = "tasks";
 const inject = ["agents", "commands", "subagents", "tools", "systemPrompt"];
 const TEXT = { type: "object", additionalProperties: false, properties: { text: { type: "string", required: true } } };
 const USAGE = "usage: /subagents on|off|status";
@@ -99,7 +99,7 @@ function apply(ctx) {
 		try {
 			return fn();
 		} catch (error) {
-			ctx.logger?.warn?.(`[omp-tasks] ${label} failed: ${error instanceof Error ? error.message : String(error)}`);
+			ctx.logger?.warn?.(`[tasks] ${label} failed: ${error instanceof Error ? error.message : String(error)}`);
 			return undefined;
 		}
 	};
@@ -132,7 +132,7 @@ function apply(ctx) {
 	ctx.inject(["webServer", "connection"], (routeCtx) => {
 		const route = {
 			kind: "exact",
-			path: "/api/omp-tasks/view",
+			path: "/api/tasks/view",
 			handler: async (req, res) => {
 				const rejection = routeCtx.connection.requestRejection(req);
 				if (rejection !== undefined) {
@@ -160,7 +160,7 @@ function apply(ctx) {
 		};
 		const subModelRoute = {
 			kind: "exact",
-			path: "/api/omp-tasks/sub-model",
+			path: "/api/tasks/sub-model",
 			handler: async (req, res) => {
 				const rejection = routeCtx.connection.requestRejection(req);
 				if (rejection !== undefined) {
@@ -200,8 +200,8 @@ function apply(ctx) {
 				json(res, 200, viewPayload(home, sessions, sessionId));
 			}
 		};
-		routeCtx.effect(() => routeCtx.webServer.register(route), "omp-tasks.view");
-		routeCtx.effect(() => routeCtx.webServer.register(subModelRoute), "omp-tasks.sub-model");
+		routeCtx.effect(() => routeCtx.webServer.register(route), "tasks.view");
+		routeCtx.effect(() => routeCtx.webServer.register(subModelRoute), "tasks.sub-model");
 	});
 }
 
@@ -279,7 +279,7 @@ function installParent(ctx, agent, session, parentTools, expects) {
 		parentTools.delete(agent);
 	};
 	parentTools.set(agent, dispose);
-	agent.ctx.effect(() => dispose, "omp-tasks.parent-tools");
+	agent.ctx.effect(() => dispose, "tasks.parent-tools");
 }
 
 function removeParent(agent, parentTools) {
@@ -563,7 +563,7 @@ function drainChild(ctx, parent, childId) {
 		const drain = ctx.subagents.drainContinuableChildren;
 		if (typeof drain === "function") void drain.call(ctx.subagents, parent, [childId]);
 	} catch (error) {
-		ctx.logger?.warn?.(`[omp-tasks] drain failed: ${error instanceof Error ? error.message : String(error)}`);
+		ctx.logger?.warn?.(`[tasks] drain failed: ${error instanceof Error ? error.message : String(error)}`);
 	}
 }
 
@@ -629,7 +629,7 @@ function modelLabel(agent) {
 
 function ompHome() {
 	const root = process.env.DSH_HOME && process.env.DSH_HOME.length > 0 ? process.env.DSH_HOME : join(homedir(), ".dsh");
-	return join(root, "omp-tasks");
+	return join(root, "tasks");
 }
 
 function roleDir() {

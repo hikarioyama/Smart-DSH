@@ -7,7 +7,7 @@ export const ROLES = Object.freeze(["explorer", "worker", "reviewer", "hacker"])
 /** Live children that hold a slot. Queued jobs do not. */
 export const MAX_CONCURRENCY = 4;
 
-export const PLUGIN = "dsh-omp-tasks";
+export const PLUGIN = "dsh-tasks";
 
 /** Model-facing receipts. There is no fourth, and no retry. */
 export const RECEIPTS = Object.freeze(["injected", "woken", "gone"]);

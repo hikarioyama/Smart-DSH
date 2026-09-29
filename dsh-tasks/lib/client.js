@@ -1,5 +1,5 @@
 window.__ModuleLoader__.load({
-	id: "dsh-omp-tasks",
+	id: "dsh-tasks",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;
@@ -91,7 +91,7 @@ window.__ModuleLoader__.load({
 			const extra = label === USAGE ? null : label;
 			const rows = statusRows(view);
 			return jsxRuntime.jsxs("div", {
-				"data-omp-tasks": "subagent",
+				"data-tasks": "subagent",
 				style: {
 					height: "100%",
 					overflow: "auto",
@@ -105,11 +105,11 @@ window.__ModuleLoader__.load({
 					jsxRuntime.jsx("div", { style: { marginBottom: "12px", color: "var(--dsw-alias-label-tertiary)" }, children: USAGE }),
 					extra !== null ? jsxRuntime.jsx("div", { children: extra }) : null,
 					...rows.map((row) => jsxRuntime.jsxs("div", {
-						"data-omp-open": "no",
+						"data-tasks-open": "no",
 						style: { display: "flex", alignItems: "center", gap: "8px", padding: "6px 0" },
 						children: [
 							jsxRuntime.jsx("span", {
-								"data-omp-dot": row.active ? "green" : "red",
+								"data-tasks-dot": row.active ? "green" : "red",
 								"aria-label": row.active ? "active" : "stopped",
 								style: {
 									width: "8px",
@@ -181,7 +181,7 @@ window.__ModuleLoader__.load({
 				}).catch(() => {});
 			};
 			return jsxRuntime.jsxs("div", {
-				"data-omp-sub-model": "on",
+				"data-tasks-sub-model": "on",
 				style: { display: "flex", alignItems: "center", gap: "8px", position: "relative" },
 				children: [
 					jsxRuntime.jsx("button", {
@@ -239,7 +239,7 @@ window.__ModuleLoader__.load({
 						]
 					}) : null,
 					jsxRuntime.jsx("span", {
-						"data-omp-main-label": "yes",
+						"data-tasks-main-label": "yes",
 						style: { color: "var(--dsw-alias-label-secondary, inherit)", fontSize: "13px" },
 						children: copy.main
 					})
@@ -269,7 +269,7 @@ window.__ModuleLoader__.load({
 					})
 				});
 			} catch (error) {
-				console.warn("[omp-tasks] view target registration failed", error);
+				console.warn("[tasks] view target registration failed", error);
 			}
 			ctx.slots.inject("conversation.view", () => ctx.slots.register({
 				name: "conversation.view",
@@ -281,8 +281,8 @@ window.__ModuleLoader__.load({
 					sessionId,
 					setView: (view) => storeFor(sessionId).set({ view }),
 					load: async () => {
-						const response = await fetch(`/api/omp-tasks/view?session=${encodeURIComponent(sessionId)}`, { credentials: "same-origin" });
-						if (!response.ok) throw new Error(`omp-tasks view ${response.status}`);
+						const response = await fetch(`/api/tasks/view?session=${encodeURIComponent(sessionId)}`, { credentials: "same-origin" });
+						if (!response.ok) throw new Error(`tasks view ${response.status}`);
 						return response.json();
 					}
 				})
@@ -297,8 +297,8 @@ window.__ModuleLoader__.load({
 					directory: ctx.modelDirectories?.directoryFor?.(sessionId) ?? null,
 					setView: (view) => storeFor(sessionId).set({ view }),
 					load: async () => {
-						const response = await fetch(`/api/omp-tasks/view?session=${encodeURIComponent(sessionId)}`, { credentials: "same-origin" });
-						if (!response.ok) throw new Error(`omp-tasks view ${response.status}`);
+						const response = await fetch(`/api/tasks/view?session=${encodeURIComponent(sessionId)}`, { credentials: "same-origin" });
+						if (!response.ok) throw new Error(`tasks view ${response.status}`);
 						return response.json();
 					},
 					save: async (route) => {
@@ -308,8 +308,8 @@ window.__ModuleLoader__.load({
 							params.set("provider", route.provider);
 							params.set("model", route.model);
 						}
-						const response = await fetch(`/api/omp-tasks/sub-model?${params}`, { method: "POST", credentials: "same-origin" });
-						if (!response.ok) throw new Error(`omp-tasks sub-model ${response.status}`);
+						const response = await fetch(`/api/tasks/sub-model?${params}`, { method: "POST", credentials: "same-origin" });
+						if (!response.ok) throw new Error(`tasks sub-model ${response.status}`);
 						return response.json();
 					}
 				})

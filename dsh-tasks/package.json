@@ -1,8 +1,8 @@
 {
-  "name": "dsh-omp-tasks",
+  "name": "dsh-tasks",
   "version": "0.1.0",
   "private": true,
-  "description": "OMP-style task delegation for DeepSeek Harness: four roles, sibling hub, durable logs, and a subagent tab",
+  "description": "Task delegation for DeepSeek Harness: four roles, sibling hub, durable logs, and a subagent tab",
   "license": "MIT",
   "type": "module",
   "main": "lib/index.js",

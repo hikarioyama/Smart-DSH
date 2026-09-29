@@ -1,0 +1,5 @@
+# OMP-style task delegation, sibling hub, and the subagent conversation tab.
+
+- insert:
+    - id: dsh-omp-tasks
+      name: dsh-omp-tasks

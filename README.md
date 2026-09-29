@@ -7,6 +7,8 @@ Keep upstream DSH installed; add Smart-DSH for:
 - **Notifications:** questions and top-level turn-end notifications through Web Push.
 - **Esc to stop:** press Escape to cancel the running turn, switchable from Settings → General.
 - **Remote access guide:** connect a phone using tailnet-only Tailscale Serve HTTPS.
+- **Subagent task delegation:** OMP-style roles (worker / explorer / hacker / reviewer), a sibling hub with durable logs, and a subagent conversation tab.
+- **OpenCode Go model catalog:** keep the `llm-pi-ai` OpenCode Go route current with every model the subscription actually serves (scripts + guide).
 - **Multi-tab reliability:** an optional, guarded [shared-HMR workaround](patches/dsh-client-hmr-0.1.2-rc.1/README.md) prevents upstream developer-update connections from exhausting Firefox's HTTP/1.1 connection slots.
 
 This is an unofficial community extension; it is not affiliated with DeepSeek.
@@ -180,6 +182,79 @@ Until that restart the running server keeps its boot-time composition: the setti
 and the listener appear only afterwards.
 
 Details, guard-by-guard rationale, and limitations: [`dsh-esc-stop/README.md`](dsh-esc-stop/README.md).
+
+## Subagent task delegation (dsh-omp-tasks)
+
+The parent agent spawns named subagents with one exclusive verb each — `worker`
+(edits only the paths the assignment names, then checks them), `explorer`
+(measures, never edits), `hacker` (attacks the assignment's premises; exactly three
+hacks in `MiL`, no experiments), and `reviewer` (judges the assigned diff against the
+assignment citing `loc:=path:line`). Children never see the parent conversation:
+the assignment is the whole task, and a worker launch without concrete named paths
+is refused by the harness.
+
+Reports flow through a sibling hub as one-line `MiL` facts addressed to a living
+roster id; prose reports are rejected (`report:=∅ ∵ ¬MiL`) and the child is nudged
+once to restate. They land in a **subagent conversation tab** in the web UI, and
+task logs persist under `$DSH_HOME/omp-tasks/`. `ask_user_question` inside a child
+is refused and logged, so a child can never stall on a question it cannot see the
+answer to; subagent turns do not notify.
+
+Install (no runtime dependency — the `pnpm add` step that `dsh-notify-push` needs
+does not apply; the `-w` flag is because the profile is a pnpm workspace root):
+
+```bash
+BUNDLE_SRC="$HOME/.dsh/profiles/web/bundles-src/dsh-omp-tasks"
+git clone https://github.com/hikarioyama/Smart-DSH.git /tmp/Smart-DSH
+mkdir -p "$(dirname "$BUNDLE_SRC")" && cp -r /tmp/Smart-DSH/dsh-omp-tasks "$BUNDLE_SRC"
+cd ~/.dsh/profiles/web && dsh plugin --profile web add "$BUNDLE_SRC" -w
+node -e 'const fs=require("fs"),p=process.env.HOME+"/.dsh/profiles/web/package.json",m=JSON.parse(fs.readFileSync(p,"utf8")),b=m.dsh.profile.bundles;if(!b.includes("dsh-omp-tasks"))b.push("dsh-omp-tasks");fs.writeFileSync(p,JSON.stringify(m,null,2)+"
+")'
+dsh --profile web --dump-config | grep dsh-omp-tasks   # read-only composition check
+systemctl --user restart dsh-web.service              # never from the session being restarted
+```
+
+The unit suite (25 tests: tool policy, the MiL reporter, both bundle halves)
+resolves its DSH imports through the profile's hoisted `@deepseek-ai/*`, so it runs
+from `$BUNDLE_SRC` after registration — a bare clone shows `ERR_MODULE_NOT_FOUND`.
+Details: [`dsh-omp-tasks/README.md`](dsh-omp-tasks/README.md).
+
+## OpenCode Go model catalog (opencode-go/)
+
+DSH ships the OpenCode Go provider with a frozen in-catalog model list, so new
+models the subscription actually serves (and ones the catalog dropped) drift apart.
+This directory is a small kit that reads the **live** Go model list and rewrites
+`llm-pi-ai.providers.opencode-go.*` in `$DSH_HOME/settings.yaml`:
+
+| File | Role |
+|---|---|
+| `gen.mjs` | emits the catalog delta (bundled-catalog route + two declaration-only routes for catalog-unknown IDs) from the bundled `pi-ai` catalog table |
+| `apply.mjs` | splices the delta into `settings.yaml` through the YAML Document API (comments preserved), with a `backups/` + `restore.sh` snapshot |
+| `verify.sh` | probes every configured model over the real wire (streaming `chat/completions`, plus the `/responses` route) and prints an OK/SKIP/NG table |
+| `set-default-model.cjs` | test helper: swap `agent-default-model` in a disposable settings copy |
+
+```bash
+cd opencode-go
+node gen.mjs                 # review the 29-model catalog (3 routes)
+node apply.mjs --dry-run     # diff only
+node apply.mjs               # write (live-watched by DSH — no restart)
+sh verify.sh                 # per-model wire probe
+```
+
+Three notes verified against the live endpoint on 2026-09-29:
+
+- **Privacy gates:** the DeepSeek family needs the workspace Privacy region set to
+  **Global**, and `muse-spark-*` additionally needs the "trains on request data"
+  consent. Both live in the OpenCode console's Privacy page (which is not linked in
+  its navigation — open `…/console/<org_id>/settings/privacy` directly).
+- Catalog-unknown IDs (`deepseek-v4.1-flash`, `mimo-v2.6-*`, `space-bunny-free`,
+  `gpt-6-luna`, `grok-4.7`, …) cannot inherit from the frozen `pi-ai` catalog, so
+  they are declared on separate `opencode-go-completions` / `opencode-go-responses`
+  routes that carry their own `api`/`baseURL` — the main route must stay protocol-mixed.
+- Deprecated IDs (`kimi-k2.6`, `omen-alpha`, `minimax-m2.7`) are excluded; `grok-4.7`
+  runs non-reasoning because xAI rejects `reasoning_effort: "none"`.
+
+Details: [`opencode-go/README.md`](opencode-go/README.md).
 
 ## Paired infrastructure (remote access + phone)
 

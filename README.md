@@ -369,6 +369,9 @@ to open the session list in one step, not the intermediate icon rail. Question
 and plan cards use the column width (`100%`) instead of the 680px content floor,
 with `2.5%` side padding, so a narrow phone does not clip either edge. Desktop
 layout is unchanged.
+The session header sheds the preset label below 768px so the "N background jobs" action clears the
+right-sidebar expand button: on 0.1.5-rc.3, which ships no width-shed rule of its own, that action
+overlapped the button by 43.5px at 360px and reached 3.5px past the viewport.
 Upstream expanded sidebar panels retain their normal behavior. CSS-module selectors
 are version-specific: recheck after a DSH upgrade. No notification logic is changed.
 
@@ -376,6 +379,10 @@ Browser regression check against an existing DSH server (does not start/restart 
 `PLAYWRIGHT_MODULE=/path/to/playwright DSH_LOGIN_URL_FILE=/path/to/private-login-url.txt node scripts/test-mobile-layout.cjs`.
 Uses isolated browser contexts, verifies 360/412/767/768/1280 CSS-pixel widths, toggle
 round trips and cleanup. The login URL file must be private; never commit it.
+
+`scripts/test-mobile-header-fit.cjs` drives the same private login URL and measures the live session
+header at 360/390/412/767/1280px: the preset label is shed on phones, the jobs action overlaps the
+corner expand button by 0px, and no part of it falls past the viewport. Desktop keeps its label.
 
 ## Esc-to-stop regression check
 

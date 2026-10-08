@@ -125,6 +125,14 @@ window.__ModuleLoader__.load({
 				const style = document.createElement("style");
 				style.dataset.smartDshMobile = "true";
 				style.textContent = `
+/* The session header has no width-shed rule in 0.1.5-rc.3 (0.2.x added the preset-label shed at
+   540px). Without it the "N background jobs" pill is laid over the right-sidebar expand button below
+   ~404px: 43.5px overlap measured at 360px, and the pill reaches 3.5px past the viewport edge. The
+   preset is passive chrome, so it yields first, matching the priority upstream states for 0.2.x. The
+   hero screen's preset is a different component, so it keeps its text. */
+@media (max-width: 767px) {
+ .SVAs4q_label { display: none !important; }
+}
 @media (max-width: 767px) {
  html[data-smart-rail="closed"] .pI_x6G_frame[data-sidebar-collapsed] { grid-template-columns: 0px minmax(0,1fr) 0px !important; }
  html[data-smart-rail="closed"] .pI_x6G_frame[data-sidebar-collapsed] > .pI_x6G_centerCol { grid-column:2; grid-row:1; }

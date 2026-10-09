@@ -24,34 +24,15 @@
  *     モデルが解決不能になる。よって「非 null の wire 値だけ」を書き、
  *     未宣言レベルは解決側で null (非対応) に自動固定される。
  */
-import { createRequire } from "node:module";
-import { delimiter, dirname, join } from "node:path";
+import { join } from "node:path";
 import { writeFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+import { resolveDshPackage, resolvePackageFrom } from "../scripts/dsh-package.cjs";
 
-import { existsSync, realpathSync } from "node:fs";
-
-/**
- * lで explorándose PATH 上の `dsh` 実行体から DSH パッケージルートを解決する
- * (BUNDLE を ~/.npm-global に置いていない環境でも動くように)。
- * 環境変数 PI_AI_DIR / DSH_ROOT があればそちらを優先する。
- */
-function dshRoot() {
-	if (process.env.PI_AI_DIR) return process.env.PI_AI_DIR;
-	for (const dir of (process.env.PATH ?? "").split(delimiter)) {
-		if (!dir) continue;
-		const link = join(dir, "dsh");
-		if (!existsSync(link)) continue;
-		try {
-			// …/@deepseek-ai/dsh/lib/bin.js → …/@deepseek-ai/dsh
-			return dirname(dirname(realpathSync(link)));
-		} catch {
-			/* 壊れた symlink は無視して次の候補へ */
-		}
-	}
-	throw new Error("dsh not found on PATH (gen.mjs)");
-}
-const PI_AI = process.env.PI_AI_DIR ?? join(dshRoot(), "node_modules", "@earendil-works", "pi-ai");
-const { OPENCODE_GO_MODELS } = createRequire(import.meta.url)(join(PI_AI, "dist/providers/opencode-go.models.js"));
+// Resolve from the provider package: npm may hoist pi-ai while pnpm nests it.
+const PI_AI = process.env.PI_AI_DIR || resolvePackageFrom("@earendil-works/pi-ai",
+  join(resolveDshPackage("@deepseek-ai/dsh-llm-pi-ai"), "package.json"));
+const { OPENCODE_GO_MODELS } = await import(pathToFileURL(join(PI_AI, "dist/providers/opencode-go.models.js")));
 
 const argv = process.argv.slice(2);
 const noDeepseek = argv.includes("--no-deepseek");

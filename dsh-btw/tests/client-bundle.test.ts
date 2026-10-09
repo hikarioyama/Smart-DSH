@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { runInNewContext } from 'node:vm'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import * as React from 'react'
 import * as ReactJsx from 'react/jsx-runtime'
 import * as Store from '@deepseek-ai/dsh-client-store'
@@ -20,19 +20,25 @@ describe('prebuilt client artifact', () => {
     } } } })
     const cleanup: Array<() => void> = []
     const effect = (callback: () => (() => void)) => { cleanup.push(callback()) }
-    let registration: { inject(id: string): { controller: { state: { getSnapshot(): unknown }; dispose(): void } } } | undefined
+    let registration: { inject(id: string): { openChild(id: string): Promise<void>; controller: { state: { getSnapshot(): unknown }; dispose(): void } } } | undefined
     const input = { state: { subscribe: () => () => {}, getSnapshot: () => ({ phase: 'plain', draft: '', occurrences: [] }) } }
     const conversation = { input: { for: () => input } }
     const services = {
       connection: {}, inputTriggers: { registerSource: () => () => {} },
       sessions: { scope: () => ({ effect }) },
     }
-    const ctx = { conversation, effect, get: (key: keyof typeof services) => services[key], slots: {
+    const openSession = vi.fn()
+    const refresh = vi.fn(async () => {})
+    Object.assign(services.sessions, { refresh })
+    const ctx = { conversation, uiWorkspace: { openSession }, effect, get: (key: keyof typeof services) => services[key], slots: {
       inject: (_name: string, callback: () => void) => callback(),
       register: (options: typeof registration) => { registration = options; return () => {} },
     } }
     expect(plugin).toBeDefined()
     plugin!.apply(ctx)
+    await registration!.inject('one').openChild('fork-child')
+    expect(refresh).toHaveBeenCalledOnce()
+    expect(openSession).toHaveBeenCalledWith('fork-child')
     const first = registration!.inject('one').controller
     expect(first.state.getSnapshot()).toMatchObject({ open: false, busy: false })
     expect(registration!.inject('one').controller).toBe(first)

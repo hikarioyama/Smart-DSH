@@ -8,8 +8,10 @@ mode="${1:---check}"
 artifact="$root/artifacts/dsh-btw-0.4.0-smart.4.tgz"
 [[ -f "$artifact" ]] || { echo 'Build and pack the test artifact first.' >&2; exit 1; }
 (cd "$root/artifacts" && sha256sum -c SHA256SUMS)
-version="$(dsh --version)"
-[[ "$version" =~ (^|[[:space:]])0\.1\.5-rc\.2($|[[:space:]]) ]] || { echo 'Only DSH 0.1.5-rc.2 was tested. No changes made.' >&2; exit 1; }
+# rdsh --version reports rdsh's release; inspect the original Node package.
+dsh_package="$(node "$root/../scripts/dsh-package.cjs")"
+version="$(node -e 'console.log(require(process.argv[1]).version)' "$dsh_package/package.json")"
+[[ "$version" == 0.2.0-rc.2 || "$version" == 0.2.1-alpha.1 ]] || { echo 'Only DSH 0.2.0-rc.2 and 0.2.1-alpha.1 were tested. No changes made.' >&2; exit 1; }
 if [[ "$mode" == --check ]]; then
   echo 'Candidate verified. No files or running services changed.'
   echo 'When all DSH turns are idle: stop dsh-web.service yourself, then rerun with --apply.'

@@ -12,7 +12,7 @@ window.__ModuleLoader__.load({
 		 * 1. Installs one document-level `keydown` listener that cancels the running
 		 *    turn when Escape is pressed and no nearer surface claims the key.
 		 * 2. Registers one General-settings row that flips the durable
-		 *    `esc-stop.enabled` host setting, so the gesture is switchable without
+		 *    `dsh-esc-stop.enabled` host setting, so the gesture is switchable without
 		 *    editing files or restarting DSH.
 		 *
 		 * The listener runs in the bubble phase. The composer keymap sits on the
@@ -26,7 +26,7 @@ window.__ModuleLoader__.load({
 		/** Settings slot this bundle contributes its toggle row to. */
 		const SLOT = "settings.general.item";
 		/** Settings namespace owned by the host half of this bundle. */
-		const NAMESPACE = "esc-stop";
+		const NAMESPACE = "dsh-esc-stop";
 
 		//#region escape decision and listener
 		// Self-contained: the browser regression script extracts exactly this
@@ -94,7 +94,7 @@ window.__ModuleLoader__.load({
 			if (sessions === void 0) return void 0;
 			const list = sessions.list.getSnapshot();
 			if (list === void 0 || list === null) return void 0;
-			const id = list.current;
+			const id = Object.values(list.byId).find((row) => (row.retainedBy.mainView ?? 0) > 0)?.id;
 			if (id === void 0 || id === null) return void 0;
 			const binding = sessions.binding(id);
 			return binding === void 0 || binding === null ? void 0 : binding;
@@ -241,17 +241,17 @@ window.__ModuleLoader__.load({
 		}
 
 		/**
-		 * Required services: `sessions` resolves the viewed session, `settingsScope`
+		 * Required services: `sessions` resolves the viewed session, `configForms`
 		 * carries the durable toggle, `slots` seats the settings row.
 		 */
-		const inject = ["sessions", "slots", "settingsScope"];
+		const inject = ["sessions", "slots", "configForms"];
 
 		/**
 		 * Client plugin body.
 		 * @param ctx - client cordis context.
 		 */
 		function apply(ctx) {
-			const scope = ctx.settingsScope.bind({ namespace: NAMESPACE });
+			const scope = ctx.configForms.get(NAMESPACE);
 			const isEnabled = () => readEnabled(scope);
 
 			const store = clientStore.createSnapshotStore({

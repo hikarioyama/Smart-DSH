@@ -10,6 +10,7 @@ export type BtwControllerFor = (sessionId: SessionId) => BtwController
 
 export function createBtwClaim(controller: BtwController, commandToken = '/btw'): CommandClaim {
   return {
+    name: 'btw',
     token: `${commandToken} `,
     hint: '<your question>',
     // A `/btw` sent from the main composer starts a fresh side-thread view.

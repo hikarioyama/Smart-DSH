@@ -1,0 +1,79 @@
+name: DSH and rdsh compatibility
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  compatibility:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22.19.0', '24']
+        dsh: ['0.2.0-rc.2', '0.2.1-alpha.1']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.18.0
+      - name: Select alpha build dependencies
+        if: matrix.dsh == '0.2.1-alpha.1'
+        run: node scripts/select-test-release.mjs '${{ matrix.dsh }}'
+      - name: Install build dependencies
+        run: pnpm --dir dsh-btw install --ignore-scripts ${{ matrix.dsh == '0.2.0-rc.2' && '--frozen-lockfile' || '--no-frozen-lockfile' }}
+      - run: pnpm --dir dsh-btw verify
+      - name: Install the official runtime in an isolated directory
+        run: |
+          npm install --prefix .runtime --ignore-scripts --no-audit --no-fund '@deepseek-ai/dsh@${{ matrix.dsh }}' 'web-push@^3.6.7'
+          ln -s "$PWD/.runtime/node_modules" node_modules
+      - name: Test bundles and integration helpers
+        env:
+          SMART_DSH_RUNTIME: ${{ github.workspace }}/.runtime/node_modules/@deepseek-ai/dsh
+        run: |
+          node --test dsh-esc-stop/tests/*.test.mjs dsh-notify-push/tests/*.test.mjs dsh-tasks/tests/*.test.mjs scripts/test-dsh-package.cjs scripts/test-opencode-go.mjs scripts/test-runtime-patches.mjs scripts/test-shared-hmr.cjs scripts/test-shared-hmr-current.cjs scripts/test-apply-shared-hmr.cjs scripts/test-claim-token-color.mjs scripts/test-session-search-keyboard.mjs scripts/test-session-select-keyboard.mjs
+      - name: Pack all Smart-DSH bundles
+        run: |
+          for bundle in dsh-btw dsh-notify-push dsh-tasks dsh-esc-stop; do
+            pnpm --dir "$bundle" pack --pack-destination "$RUNNER_TEMP/smart-bundles"
+          done
+      - name: Verify installation, Web startup, authentication, and removal
+        run: |
+          node dsh-btw/scripts/smoke-profile.mjs "$PWD/.runtime/node_modules/@deepseek-ai/dsh/lib/bin.js" "$RUNNER_TEMP/smart-bundles/dsh-btw-0.4.0-smart.4.tgz" "$RUNNER_TEMP/profile-store" "$RUNNER_TEMP/smart-bundles/dsh-notify-push-0.1.0.tgz" "$RUNNER_TEMP/smart-bundles/dsh-tasks-0.1.0.tgz" "$RUNNER_TEMP/smart-bundles/dsh-esc-stop-0.1.0.tgz"
+      - name: Install Chromium
+        working-directory: dsh-btw
+        run: |
+          sudo apt-get update && sudo apt-get install -y zstd
+          pnpm exec playwright-core install --with-deps chromium
+      - name: Verify all bundles in the browser with a local mock model
+        working-directory: dsh-btw
+        run: |
+          browser=$(node -e 'console.log(require("playwright-core").chromium.executablePath())')
+          node scripts/browser-profile.mjs "$GITHUB_WORKSPACE/.runtime/node_modules/@deepseek-ai/dsh/lib/bin.js" "$RUNNER_TEMP/smart-bundles/dsh-btw-0.4.0-smart.4.tgz" "$browser" "$RUNNER_TEMP/smart-bundles/dsh-notify-push-0.1.0.tgz" "$RUNNER_TEMP/smart-bundles/dsh-tasks-0.1.0.tgz" "$RUNNER_TEMP/smart-bundles/dsh-esc-stop-0.1.0.tgz"
+      - uses: actions/checkout@v4
+        if: matrix.dsh == '0.2.0-rc.2' && matrix.node == '24'
+        with:
+          repository: jimoto-no-llm/rustdsh
+          ref: 96dbcbbd6e1295b2e92ba31e9cf9037770107b24
+          path: .rdsh-source
+      - uses: dtolnay/rust-toolchain@stable
+        if: matrix.dsh == '0.2.0-rc.2' && matrix.node == '24'
+      - name: Build the audited rdsh launcher
+        if: matrix.dsh == '0.2.0-rc.2' && matrix.node == '24'
+        working-directory: .rdsh-source
+        run: cargo build --release --locked
+      - name: Verify all bundles through rdsh
+        if: matrix.dsh == '0.2.0-rc.2' && matrix.node == '24'
+        env:
+          RDSH_BIN: ${{ github.workspace }}/.rdsh-source/target/release/rdsh
+        run: |
+          sudo apt-get update && sudo apt-get install -y bubblewrap
+          mkdir -p .runtime/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai
+          ln -s "$PWD/.runtime/node_modules/@deepseek-ai/dsh-tools" .runtime/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-tools
+          node dsh-btw/scripts/smoke-profile.mjs "$PWD/.runtime/node_modules/@deepseek-ai/dsh/lib/bin.js" "$RUNNER_TEMP/smart-bundles/dsh-btw-0.4.0-smart.4.tgz" "$RUNNER_TEMP/profile-store" "$RUNNER_TEMP/smart-bundles/dsh-notify-push-0.1.0.tgz" "$RUNNER_TEMP/smart-bundles/dsh-tasks-0.1.0.tgz" "$RUNNER_TEMP/smart-bundles/dsh-esc-stop-0.1.0.tgz"

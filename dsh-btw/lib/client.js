@@ -30,7 +30,7 @@ __deepseek_ai_dsh_client_ui_primitives = __toESM(__deepseek_ai_dsh_client_ui_pri
 let react_jsx_runtime = require("react/jsx-runtime");
 react_jsx_runtime = __toESM(react_jsx_runtime);
 
-//#region node_modules/.pnpm/@deepseek-ai+dsh-brand@0.1.5-rc.2_@deepseek-ai+cordis@4.0.2/node_modules/@deepseek-ai/dsh-brand/lib/index.js
+//#region node_modules/.pnpm/@deepseek-ai+dsh-brand@0.2.0-rc.2_@deepseek-ai+cordis@4.0.4/node_modules/@deepseek-ai/dsh-brand/lib/index.js
 /**
 * Duplicate-install-safe nominal primitive helpers.
 *
@@ -54,7 +54,7 @@ function brandString(value) {
 }
 
 //#endregion
-//#region node_modules/.pnpm/@deepseek-ai+dsh-session@0.1.5-rc.2_@deepseek-ai+cordis@4.0.2_@deepseek-ai+dsh-scope@0._54d1a918d77e481567353c23a9e2039f/node_modules/@deepseek-ai/dsh-session/lib/types/types.js
+//#region node_modules/.pnpm/@deepseek-ai+dsh-session@0.2.0-rc.2_@deepseek-ai+cordis@4.0.4_@deepseek-ai+dsh-scope@0._c9dee8deba3bd498ce58eb9c566c157f/node_modules/@deepseek-ai/dsh-session/lib/types/types.js
 /**
 * Brand a string as a {@link SessionId}.
 * @param id - the raw session id string.
@@ -83,6 +83,7 @@ const dockStyle = {
 //#region src/client/input-source.ts
 function createBtwClaim(controller, commandToken = "/btw") {
 	return {
+		name: "btw",
 		token: `${commandToken} `,
 		hint: "<your question>",
 		submit: (args) => controller.ask(args, true)
@@ -548,8 +549,8 @@ function BtwOverlay({ controller, openChild, dockStyle: dockStyle$1 }) {
 						children: "Main task continues · audit saved separately"
 					}),
 					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { style: { flex: 1 } }),
-					state.busy && iconButton("Cancel BTW", /* @__PURE__ */ (0, react_jsx_runtime.jsx)(__deepseek_ai_dsh_client_ui_primitives.IconStopFill16, {}), () => controller.cancel()),
-					iconButton("Close", /* @__PURE__ */ (0, react_jsx_runtime.jsx)(__deepseek_ai_dsh_client_ui_primitives.IconCloseOutline16, {}), () => controller.dismiss())
+					state.busy && iconButton("Cancel BTW", /* @__PURE__ */ (0, react_jsx_runtime.jsx)(__deepseek_ai_dsh_client_ui_primitives.IconStopFillRegular, {}), () => controller.cancel()),
+					iconButton("Close", /* @__PURE__ */ (0, react_jsx_runtime.jsx)(__deepseek_ai_dsh_client_ui_primitives.IconCloseOutlineRegular, {}), () => controller.dismiss())
 				]
 			}),
 			/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
@@ -592,7 +593,7 @@ function BtwOverlay({ controller, openChild, dockStyle: dockStyle$1 }) {
 							children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(__deepseek_ai_dsh_client_ui_primitives.Button, {
 								variant: "ghost",
 								size: "sm",
-								icon: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(__deepseek_ai_dsh_client_ui_primitives.IconBranchOutline16, {}),
+								icon: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(__deepseek_ai_dsh_client_ui_primitives.IconBranchOutlineRegular, {}),
 								"aria-label": "Branch into a new conversation",
 								"aria-disabled": forking || state.busy || t.anchorSeq === null || void 0,
 								disabled: forking || state.busy || t.anchorSeq === null,
@@ -672,7 +673,7 @@ function BtwOverlay({ controller, openChild, dockStyle: dockStyle$1 }) {
 						variant: "primary",
 						size: "md",
 						type: "submit",
-						icon: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(__deepseek_ai_dsh_client_ui_primitives.IconSendOutline16, {}),
+						icon: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(__deepseek_ai_dsh_client_ui_primitives.IconSendOutlineRegular, {}),
 						"aria-label": "Ask BTW",
 						disabled: state.busy || !draft.trim(),
 						style: {
@@ -705,7 +706,8 @@ const inject = [
 	"inputTriggers",
 	"sessions",
 	"slots",
-	"conversation"
+	"conversation",
+	"uiWorkspace"
 ];
 function apply(ctx) {
 	const connection = ctx.get("connection");
@@ -752,7 +754,7 @@ function apply(ctx) {
 				dockStyle,
 				openChild: async (id) => {
 					await sessions.refresh();
-					sessions.open(SessionId(id));
+					ctx.uiWorkspace.openSession(SessionId(id));
 				}
 			};
 		}

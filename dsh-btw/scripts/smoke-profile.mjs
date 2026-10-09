@@ -2,25 +2,33 @@ import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { mkdtemp, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 
 // No real user Profile or credentials are read or modified. Model calls are
 // intentionally excluded: this is installation/start/transport/uninstall evidence.
-const [cliArg, tarballArg, storeArg] = process.argv.slice(2)
+const [cliArg, tarballArg, storeArg, ...addonArgs] = process.argv.slice(2)
 if (!cliArg || !tarballArg) throw new Error('Usage: node scripts/smoke-profile.mjs <dsh/lib/bin.js> <plugin.tgz> [pnpm-store]')
 const cli = resolve(cliArg)
+const rdsh = process.env.RDSH_BIN ? resolve(process.env.RDSH_BIN) : undefined
 const tarball = resolve(tarballArg)
+const addons = addonArgs.map(file => resolve(file))
+const addonNames = addons.map(file => {
+  const name = ['dsh-notify-push', 'dsh-esc-stop', 'dsh-tasks'].find(name => basename(file).startsWith(name + '-'))
+  if (!name) throw Error('Unknown Smart-DSH addon: ' + file)
+  return name
+})
 const home = await mkdtemp(join(tmpdir(), 'dsh-btw-profile-'))
 const env = Object.fromEntries(['PATH', 'LANG', 'LC_ALL', 'TERM', 'SHELL', 'TMPDIR'].filter(k => process.env[k] !== undefined).map(k => [k, process.env[k]]))
 Object.assign(env, { HOME: home, XDG_CONFIG_HOME: join(home, '.config'), XDG_CACHE_HOME: join(home, '.cache'), XDG_DATA_HOME: join(home, '.local/share'), DSH_HOME: home })
+if (rdsh) env.RDSH_ORIG_BIN = cli
 const store = storeArg ? ['--store-dir', resolve(storeArg)] : []
 const cwd = dirname(cli)
 const packageJson = JSON.parse(await readFile(join(cwd, '..', 'package.json'), 'utf8'))
-const report = { dsh: packageJson.version, node: process.version, home, checks: {} }
+const report = { dsh: packageJson.version, launcher: rdsh ? 'rdsh' : 'dsh', node: process.version, home, checks: {} }
 const redact = text => text.replace(/([?&]token=)[^\s]+/g, '$1<redacted>')
 
 function launch(args) {
-  const child = spawn(process.execPath, [cli, ...args], { cwd, env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
+  const child = spawn(rdsh || process.execPath, rdsh ? args : [cli, ...args], { cwd, env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
   let output = ''
   child.stdout.on('data', data => { output += data.toString() })
   child.stderr.on('data', data => { output += data.toString() })
@@ -54,10 +62,11 @@ async function ready(job) {
 
 let server
 try {
-  await run(['plugin', '--profile', 'web', 'add', '-w', tarball, '--ignore-scripts', '--config.auto-install-peers=false', ...store])
+  await run(['plugin', '--profile', 'web', 'add', '-w', tarball, ...addons, '--ignore-scripts', '--config.auto-install-peers=false', ...store])
   report.checks.install = 'passed'
   const composed = await run(['--profile', 'web', '--dump-config'])
   assert.match(composed, /id: btw\b/)
+  for (const name of addonNames) assert.ok(composed.includes('id: ' + name))
   report.checks.composedEntry = 'passed'
   server = launch(['--profile', 'web', '--no-open', '--host', '127.0.0.1', '--port', '0'])
   const url = await ready(server)
@@ -87,11 +96,22 @@ try {
   const missing = await rpc({ requestId: 'smoke', sessionId: 'nonexistent-smoke-session', question: 'hello' }, authenticated)
   assert.equal((await missing.json()).result.error.code, 'session-not-found')
   report.checks.authenticatedRpc = 'passed'
+  for (const [name, endpoint] of [['dsh-notify-push', '/api/push/vapid'], ['dsh-tasks', '/api/tasks/view?session=smoke-session']]) {
+    if (!addonNames.includes(name)) continue
+    const endpointUrl = new URL(endpoint, url)
+    assert.equal((await fetch(endpointUrl)).status, 401, name + ' authentication')
+    const response = await fetch(endpointUrl, { headers: authenticated })
+    assert.equal(response.status, 200, name + ' authenticated route')
+    const value = await response.json()
+    if (name === 'dsh-notify-push') assert.ok(value.publicKey)
+    else assert.equal(value.enabled, false)
+    report.checks[name] = 'passed'
+  }
   report.checks.realModelCall = 'not-run'
 } finally {
   if (server) { server.child.kill(); await server.done }
   try {
-    await run(['plugin', '--profile', 'web', 'remove', '-w', 'dsh-btw', ...store])
+    await run(['plugin', '--profile', 'web', 'remove', '-w', 'dsh-btw', ...addonNames, ...store])
     const composed = await run(['--profile', 'web', '--dump-config'])
     assert.doesNotMatch(composed, /id: btw\b/)
     report.checks.uninstall = 'passed'

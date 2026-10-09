@@ -35,9 +35,9 @@ export function balancedMessagePrefix(messages: readonly Message[]): Message[] {
   for (let index = 0; index < messages.length; index++) {
     const message = messages[index]
     if (message === undefined) continue
+    if (message.role === 'tool') pending.delete(String(message.toolCallId))
     for (const block of message.content) {
       if (message.role === 'assistant' && block.type === 'tool-call') pending.add(String(block.id))
-      if (message.role === 'user' && block.type === 'tool-result') pending.delete(String(block.toolCallId))
     }
     if (pending.size === 0) lastBalanced = index + 1
   }

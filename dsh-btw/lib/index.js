@@ -153,10 +153,8 @@ function balancedMessagePrefix(messages) {
 	for (let index = 0; index < messages.length; index++) {
 		const message = messages[index];
 		if (message === void 0) continue;
-		for (const block of message.content) {
-			if (message.role === "assistant" && block.type === "tool-call") pending.add(String(block.id));
-			if (message.role === "user" && block.type === "tool-result") pending.delete(String(block.toolCallId));
-		}
+		if (message.role === "tool") pending.delete(String(message.toolCallId));
+		for (const block of message.content) if (message.role === "assistant" && block.type === "tool-call") pending.add(String(block.id));
 		if (pending.size === 0) lastBalanced = index + 1;
 	}
 	return messages.slice(0, lastBalanced);

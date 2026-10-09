@@ -18,7 +18,8 @@
   "files": [
     "lib",
     "sw",
-    "tests"
+    "tests",
+    "cordis.patch.yml"
   ],
   "dsh": {
     "bundle": {
@@ -26,9 +27,16 @@
     },
     "client": {
       "inject": [
-        "@deepseek-ai/dsh-api-remotes"
+        "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-client-ui-commands"
       ],
       "platform": "web"
+    },
+    "compatibility": {
+      "dsh": "0.2.0-rc.2 || 0.2.1-alpha.1",
+      "profiles": [
+        "web"
+      ]
     }
   },
   "scripts": {

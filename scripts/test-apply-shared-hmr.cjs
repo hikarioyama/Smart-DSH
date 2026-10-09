@@ -45,8 +45,25 @@ test('apply creates a private backup, is idempotent, and restores original bytes
 test('unsupported versions and package names fail without touching files', t => {
   for (const overrides of [{ version: '0.2.0' }, { name: 'unrelated-package' }]) {
     const f = fixture(t, overrides);
-    assert.throws(() => run({ ...f, mode: 'apply' }), /Only .* is supported/);
+    assert.throws(() => run({ ...f, mode: 'apply' }), /Only .* supported/);
     assert.deepEqual(fs.readFileSync(f.target), upstream); assert.equal(fs.existsSync(f.backupDir), false);
+  }
+});
+test('current rc and alpha apply and restore only their verified upstream bytes', t => {
+  const currentDir = path.join(__dirname, '../patches/dsh-client-hmr-0.2.0-rc.2');
+  const original = fs.readFileSync(path.join(currentDir, 'upstream-client.js'));
+  const replacement = fs.readFileSync(path.join(currentDir, 'client.js'));
+  for (const version of ['0.2.0-rc.2', '0.2.1-alpha.1']) {
+    const f = fixture(t, { version });
+    fs.writeFileSync(f.target, original);
+    assert.equal(run({ ...f, mode: 'check' }).state, 'original');
+    const result = run({ ...f, mode: 'apply' });
+    assert.deepEqual(fs.readFileSync(f.target), replacement);
+    assert.equal(run({ ...f, mode: 'apply' }).changed, false);
+    assert.equal(run({ ...f, mode: 'restore', restoreFile: result.backup }).changed, true);
+    assert.deepEqual(fs.readFileSync(f.target), original);
+    fs.writeFileSync(f.target, upstream);
+    assert.throws(() => run({ ...f, mode: 'apply' }), /unrecognized changes/);
   }
 });
 test('unknown local edits are preserved, not silently overwritten', t => {

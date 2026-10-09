@@ -47,7 +47,7 @@ function createSnapshotStoreStub(initial) {
 await import("../lib/client.js");
 assert.equal(captured.id, "dsh-esc-stop");
 const client = captured.factory(requireShim);
-assert.deepEqual(client.inject, ["sessions", "slots", "settingsScope"]);
+assert.deepEqual(client.inject, ["sessions", "slots", "configForms"]);
 assert.equal(typeof client.apply, "function");
 
 const ESCAPE = { key: "Escape" };
@@ -93,7 +93,7 @@ function harness({
 		list: {
 			getSnapshot: () => {
 				if (sessionsBroken) throw new Error("host session list unavailable");
-				return { current, byId: current === undefined || current === null ? {} : { [current]: { running } } };
+				return { byId: current === undefined || current === null ? {} : { [current]: { id: current, running, retainedBy: { mainView: 1 } } } };
 			}
 		},
 		binding: (id) => (current !== undefined && current !== null && id === current ? { sessionId: id, session } : undefined),
@@ -119,7 +119,7 @@ function harness({
 	};
 
 	const ctx = {
-		settingsScope: settingsAvailable ? { bind: (spec) => (state.bindSpecs.push(spec), settingsScope) } : undefined,
+		configForms: settingsAvailable ? { get: (entryId) => (state.bindSpecs.push(entryId), settingsScope) } : undefined,
 		slots: {
 			inject: (name, fn) => (state.slots.push(name), fn()),
 			register: (options, Component) => (state.rows.push({ options, Component }), () => {})
@@ -252,7 +252,7 @@ test("the listener is disposed with the plugin effect", () => {
 //#region settings row
 test("registers one General-settings row bound to the esc-stop namespace", () => {
 	const { state } = harness();
-	assert.deepEqual(state.bindSpecs, [{ namespace: "esc-stop" }]);
+	assert.deepEqual(state.bindSpecs, ["dsh-esc-stop"]);
 	assert.deepEqual(state.slots, ["settings.general.item"]);
 	assert.equal(state.rows.length, 1);
 	assert.equal(state.rows[0].options.id, "esc-stop");

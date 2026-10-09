@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
-import { Button, IconBranchOutline16, IconCloseOutline16, IconSendOutline16, IconStopFill16, MarkdownText, Tooltip, type MarkdownLabels } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconBranchOutlineRegular, IconCloseOutlineRegular, IconSendOutlineRegular, IconStopFillRegular, MarkdownText, Tooltip, type MarkdownLabels } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { BtwController } from '../controller.js'
 import { BOOKMARK_BAR_PX, btwTopLimit, clampHeight, isPhoneViewport, transcriptHeightForTop } from './panel-bounds.js'
 
@@ -148,8 +148,8 @@ export function BtwOverlay({ controller, openChild, dockStyle }: BtwOverlayInjec
       <strong style={{ flex: 'none' }}>/btw</strong>
       <span style={caption}>Main task continues · audit saved separately</span>
       <span style={{ flex: 1 }} />
-      {state.busy && iconButton('Cancel BTW', <IconStopFill16 />, () => controller.cancel())}
-      {iconButton('Close', <IconCloseOutline16 />, () => controller.dismiss())}
+      {state.busy && iconButton('Cancel BTW', <IconStopFillRegular />, () => controller.cancel())}
+      {iconButton('Close', <IconCloseOutlineRegular />, () => controller.dismiss())}
     </header>
     <div data-btw-transcript ref={transcript} onScroll={e => { const el = e.currentTarget; followTail.current = el.scrollHeight - el.clientHeight - el.scrollTop < 64 }}
       style={{ overflow: 'auto', minHeight: 0, height, maxHeight: phone ? '100%' : '70dvh', overscrollBehavior: 'contain', padding: '4px 16px 8px' }}>
@@ -159,7 +159,7 @@ export function BtwOverlay({ controller, openChild, dockStyle }: BtwOverlayInjec
           {t.answer !== undefined && <Tooltip side="bottom" label={t.anchorSeq === null
             ? 'Fork needs a completed parent turn'
             : 'Branch into a new conversation'}>
-            <Button variant="ghost" size="sm" icon={<IconBranchOutline16 />} aria-label="Branch into a new conversation"
+            <Button variant="ghost" size="sm" icon={<IconBranchOutlineRegular />} aria-label="Branch into a new conversation"
               aria-disabled={forking || state.busy || t.anchorSeq === null || undefined}
               disabled={forking || state.busy || t.anchorSeq === null} style={{ flex: 'none', padding: 0, width: 28 }}
               onClick={() => { setForking(true); setError(''); void controller.fork(t.id).then(async id => {
@@ -181,7 +181,7 @@ export function BtwOverlay({ controller, openChild, dockStyle }: BtwOverlayInjec
         placeholder="Ask a side question"
         style={{ flex: 1, minWidth: 0, maxHeight: 160, resize: 'none', font: 'inherit', lineHeight: 'inherit', color: 'inherit', background: 'transparent', border: 0, outline: 'none', padding: '7px 0' }} />
       <Tooltip label="Ask BTW" side="bottom">
-        <Button variant="primary" size="md" type="submit" icon={<IconSendOutline16 />} aria-label="Ask BTW"
+        <Button variant="primary" size="md" type="submit" icon={<IconSendOutlineRegular />} aria-label="Ask BTW"
           disabled={state.busy || !draft.trim()} style={{ flex: 'none', width: 36, padding: 0, borderRadius: 18 }} />
       </Tooltip>
     </form>

@@ -1,8 +1,8 @@
-import { clientRequestSchema, type ConnectionFetchRoute, type ConnectionRpcHandler } from '@deepseek-ai/dsh-client-connection'
+import { clientRequestSchema, type ConnectionFetchRoute, type ConnectionRpcHandlerResult } from '@deepseek-ai/dsh-client-connection'
 import { BTW_ASK_ENDPOINT, BTW_RPC_CHANNEL } from '../shared/protocol.js'
 
 /** Add one plugin-owned endpoint to the authenticated shared carrier. */
-export function createBtwRpcRoute(handler: ConnectionRpcHandler, endpoint = BTW_ASK_ENDPOINT): ConnectionFetchRoute {
+export function createBtwRpcRoute(handler: (method: string, payload: unknown, signal: AbortSignal) => Promise<ConnectionRpcHandlerResult>, endpoint = BTW_ASK_ENDPOINT): ConnectionFetchRoute {
   return {
     path: `${BTW_RPC_CHANNEL}/${endpoint}`,
     methods: ['POST'],

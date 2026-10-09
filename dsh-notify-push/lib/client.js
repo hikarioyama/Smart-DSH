@@ -249,13 +249,13 @@ window.__ModuleLoader__.load({
 				const command = scope.get("commandUi");
 				scope.effect(() => command.register({
 					name: "notify",
-					description: "質問時の通知 (Web Push) のON/OFF",
+					description: () => "質問時の通知 (Web Push) のON/OFF",
 					available: () => typeof Notification !== "undefined" && "PushManager" in window,
 					ui: {
 						kind: "popupSelect",
 						options: async () => [
-							{ id: "on", label: `ON にする`, description: `現在: ${statusLabel()} / 通知を許可し、購読を登録する` },
-							{ id: "off", label: `OFF にする`, description: `現在: ${statusLabel()} / 購読を解除し、通知を止める` }
+							{ id: "on", label: `ON にする`, detail: `現在: ${statusLabel()} / 通知を許可し、購読を登録する` },
+							{ id: "off", label: `OFF にする`, detail: `現在: ${statusLabel()} / 購読を解除し、通知を止める` }
 						],
 						onSelect: async (option) => {
 							if (option.id === "on") {

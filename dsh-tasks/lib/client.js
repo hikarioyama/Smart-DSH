@@ -247,7 +247,7 @@ window.__ModuleLoader__.load({
 			});
 		}
 
-		const inject = ["slots", "sessions", "uiConversation"];
+		const inject = ["slots", "sessions", "uiConversation", "modelDirectories", "remote", "remote.session"];
 
 		function apply(ctx) {
 			const stores = new Map();
@@ -294,7 +294,7 @@ window.__ModuleLoader__.load({
 				inject: (sessionId) => ({
 					hooks: { ompTasks: storeFor(sessionId) },
 					sessionId,
-					directory: ctx.modelDirectories?.directoryFor?.(sessionId) ?? null,
+					directory: ctx.modelDirectories.directoryFor(sessionId),
 					setView: (view) => storeFor(sessionId).set({ view }),
 					load: async () => {
 						const response = await fetch(`/api/tasks/view?session=${encodeURIComponent(sessionId)}`, { credentials: "same-origin" });

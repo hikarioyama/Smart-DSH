@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'
 import { chromium, firefox } from 'playwright-core'
+import { resolvePackageFrom } from '../../scripts/dsh-package.cjs'
 
 const args = process.argv.slice(2)
 let browserKind = 'chromium', liveAdd = false
@@ -15,18 +16,20 @@ while (args[0]?.startsWith('--')) {
   else throw Error('Unknown option: ' + flag)
 }
 const [cliArg, tarballArg, browserArg, ...addonDirs] = args
-if (!cliArg || !tarballArg || !browserArg) throw Error('Usage: browser-profile.mjs [--firefox] [--live-add] <dsh/lib/bin.js> <plugin.tgz> <browser executable> [addon directories...]')
+if (!cliArg || !tarballArg || !browserArg) throw Error('Usage: browser-profile.mjs [--firefox] [--live-add] <dsh/lib/bin.js> <plugin.tgz> <browser executable> [addon directories or tarballs...]')
 const cli = resolve(cliArg), tarball = resolve(tarballArg)
-const runtime = resolve(dirname(cli), '../node_modules/@deepseek-ai')
+const rdsh = process.env.RDSH_BIN ? resolve(process.env.RDSH_BIN) : undefined
 const home = await mkdtemp(join(tmpdir(), 'smart-btw-browser-'))
 // Isolate third-party auth discovery too, not just DSH's settings directory.
 const env = Object.fromEntries(['PATH', 'LANG', 'LC_ALL', 'TERM', 'SHELL', 'TMPDIR'].filter(k => process.env[k] !== undefined).map(k => [k, process.env[k]]))
 Object.assign(env, { HOME: home, XDG_CONFIG_HOME: join(home, '.config'), XDG_CACHE_HOME: join(home, '.cache'), XDG_DATA_HOME: join(home, '.local/share'), DSH_HOME: home })
+if (rdsh) env.RDSH_ORIG_BIN = cli
 const checks = {}
 let browserVersion
+const browserLogs = []
 const redact = text => text.replace(/([?&]token=)[^\s]+/g, '$1<redacted>')
 function launch(args) {
-  const child = spawn(process.execPath, [cli, ...args], { cwd: home, env, stdio: ['ignore', 'pipe', 'pipe'] })
+  const child = spawn(rdsh || process.execPath, rdsh ? args : [cli, ...args], { cwd: home, env, stdio: ['ignore', 'pipe', 'pipe'] })
   let output = ''
   child.stdout.on('data', b => { output += b }); child.stderr.on('data', b => { output += b })
   const done = new Promise((res, rej) => { child.once('error', rej); child.once('close', res) })
@@ -41,7 +44,7 @@ async function waitFor(fn, label, ms = 45000) {
   while (Date.now() < end) { const value = await fn(); if (value) return value; await new Promise(r => setTimeout(r, 100)) }
   throw Error('Timeout: ' + label)
 }
-const llmUrl = pathToFileURL(join(runtime, 'dsh-llm/lib/index.js')).href
+const llmUrl = pathToFileURL(join(resolvePackageFrom('@deepseek-ai/dsh-llm', cli), 'lib/index.js')).href
 const fixture = join(home, 'fixture.mjs')
 await writeFile(fixture, `
 import { LlmAdapter } from ${JSON.stringify(llmUrl)};
@@ -51,6 +54,7 @@ export const name = 'btw-test-fixture';
 export const inject = ['llm', 'sessionController', 'agents'];
 export function apply(ctx) {
   class Adapter extends LlmAdapter {
+    async listModels(provider) { return [{ provider, id: 'mock', name: 'Mock model' }]; }
     async *stream(options) {
       const last = options.messages.filter(m => m.role === 'user' && m.source?.kind === 'user').at(-1)?.content?.filter(b => b.type === 'text').map(b => b.text).join('') ?? '';
       const isSide = last.includes('side question from the user');
@@ -95,6 +99,10 @@ let server, browser
 try {
   if (!liveAdd) await run(['plugin', '--profile', 'web', 'add', '-w', tarball, '--ignore-scripts', '--config.auto-install-peers=false'])
   for (const source of addonDirs) {
+    if ((await stat(source)).isFile()) {
+      await run(['plugin', '--profile', 'web', 'add', '-w', resolve(source), '--ignore-scripts', '--config.auto-install-peers=false'])
+      continue
+    }
     const target = join(home, 'profiles/web/bundles-src', basename(source))
     await mkdir(target, { recursive: true })
     for (const name of ['package.json', 'cordis.patch.yml', 'lib', 'sw', 'LICENSE']) {
@@ -123,10 +131,11 @@ try {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
   const errors = []
+
   const watchErrors = target => {
-    target.on('pageerror', e => errors.push(e.message))
+    target.on('pageerror', e => { errors.push(e.message); browserLogs.push('pageerror: ' + e.stack) })
     // A rejected suggestion source is caught by DSH, not an uncaught pageerror.
-    target.on('console', e => { if (e.type() === 'error' && e.text().startsWith('[ui-input-trigger] source ')) errors.push(e.text()) })
+    target.on('console', e => { browserLogs.push(e.type() + ': ' + e.text()); if (e.type() === 'error' && !e.text().startsWith('Failed to load resource:')) errors.push(e.text()) })
   }
   watchErrors(page)
   await page.goto(url)
@@ -135,14 +144,21 @@ try {
   await page.getByText('BTW Browser Test', { exact: true }).first().click({ timeout: 30000 })
   await page.getByText('MAIN_TEST_READY', { exact: true }).waitFor({ timeout: 30000 })
   checks.mainReady = true
+  if (addonDirs.some(path => basename(path).startsWith('dsh-tasks'))) {
+    await page.getByText('subagent', { exact: true }).waitFor()
+    checks.tasksTab = true
+  }
   const mainInput = page.locator('[contenteditable="true"][role="textbox"]').first()
-  await mainInput.fill('/co')
-  await page.locator('[data-trigger-menu]').getByRole('option').filter({ hasText: /^compact/ }).waitFor()
+  await waitFor(async () => {
+    await mainInput.fill(''); await mainInput.pressSequentially('/co')
+    await page.waitForTimeout(500)
+    return page.locator('[data-trigger-menu]').getByRole('option').filter({ hasText: /^compact/i }).isVisible()
+  }, 'command source ready')
   await mainInput.fill('')
   checks.standardCommandSuggestions = true
   if (liveAdd) {
     await mainInput.fill('MAIN_HOLD_LIVE_ADD'); await mainInput.press('Enter')
-    await page.getByText(/Deep diving/).waitFor()
+    await page.getByText(/Deep diving for/).waitFor()
     const pid = server.child.pid
     const installer = join(dirname(fileURLToPath(import.meta.url)), 'enable-live.mjs')
     execFileSync(process.execPath, [installer, '--apply', home], { env, encoding: 'utf8' })
@@ -152,7 +168,7 @@ try {
       return result?.result?.error?.code === 'bad-request'
     }), 'live plugin host registration', 10000)
     await page.reload()
-    await page.getByText(/Deep diving/).waitFor()
+    await page.getByText(/Deep diving for/).waitFor()
     assert.equal(server.child.pid, pid); assert.equal(server.child.exitCode, null)
     checks.liveAdditionWithoutRestart = true
   }
@@ -160,8 +176,8 @@ try {
   const panel = page.locator('[data-smart-btw]')
   await panel.getByText('BTW_TEST_ANSWER FIRST_CHECK', { exact: true }).waitFor({ timeout: 15000 })
   if (liveAdd) {
-    assert.ok(await page.getByText(/Deep diving/).isVisible(), 'Live addition must not interrupt the running main request')
-    await page.getByText(/Deep diving/).waitFor({ state: 'hidden', timeout: 25000 })
+    assert.ok(await page.getByText(/Deep diving for/).isVisible(), 'Live addition must not interrupt the running main request')
+    await page.getByText(/Deep diving for/).waitFor({ state: 'hidden', timeout: 25000 })
     assert.equal(await page.getByText('MAIN_TEST_READY', { exact: true }).count(), 2)
     checks.mainSurvivedLiveAddition = true
   }
@@ -204,8 +220,8 @@ try {
   await waitFor(async () => !(await panel.isVisible()), 'close hides the panel')
   // Closing must reveal nothing: `/btw` alone offers the command, never a list of
   // questions asked earlier.
-  await mainInput.fill('/btw')
-  await page.locator('[data-trigger-menu]').getByRole('option').filter({ hasText: /^btw/ }).waitFor()
+  await mainInput.fill(''); await mainInput.pressSequentially('/btw')
+  await page.locator('[data-trigger-menu]').getByRole('option').filter({ hasText: /^btw/i }).waitFor()
   assert.equal(await page.locator('[data-smart-btw]').count(), 0, 'No panel may appear without a question')
   assert.equal(await page.getByLabel('Recent BTW questions').count(), 0)
   await mainInput.fill('')
@@ -217,13 +233,13 @@ try {
   assert.equal(await panel.getByText('FOURTH_CHECK', { exact: true }).count(), 0)
   checks.freshThreadView = true
   await mainInput.fill('MAIN_HOLD'); await mainInput.press('Enter')
-  await page.getByText(/Deep diving/).waitFor()
+  await page.getByText(/Deep diving for/).waitFor()
   await panel.getByRole('textbox').fill('PARALLEL_CHECK')
   await panel.getByRole('button', { name: 'Ask BTW', exact: true }).click()
   await panel.getByText('BTW_TEST_ANSWER PARALLEL_CHECK', { exact: true }).waitFor()
-  assert.ok(await page.getByText(/Deep diving/).isVisible(), 'BTW must finish while main is still running')
+  assert.ok(await page.getByText(/Deep diving for/).isVisible(), 'BTW must finish while main is still running')
   checks.parallelWithMain = true
-  await page.getByText(/Deep diving/).waitFor({ state: 'hidden', timeout: 15000 })
+  await page.getByText(/Deep diving for/).waitFor({ state: 'hidden', timeout: 15000 })
   await panel.getByRole('textbox').fill('CANCEL_CHECK')
   await panel.getByRole('button', { name: 'Ask BTW', exact: true }).click()
   await panel.getByRole('button', { name: 'Cancel BTW', exact: true }).click()
@@ -265,7 +281,7 @@ try {
     for (const entry of await readdir(dir, { withFileTypes: true })) {
       const path = join(dir, entry.name)
       if (entry.isDirectory()) await walk(path)
-      else if (entry.name === 'session.v3.jsonl.zstd') sessionFiles.push(path)
+      else if (entry.name === 'session.v4.jsonl.zstd') sessionFiles.push(path)
     }
   }
   await walk(join(home, 'sessions'))
@@ -284,6 +300,34 @@ try {
   checks.parentLogUntouchedByBtw = true
   checks.forkDiskReadback = true
   checks.forkUsesRecordedAnchor = true
+  if (addonDirs.some(path => basename(path).startsWith('dsh-esc-stop'))) {
+    const expand = page.getByRole('button', { name: 'Open sidebar', exact: true })
+    if (await expand.isVisible()) await expand.click()
+    await page.getByText('Settings', { exact: true }).click()
+    const toggle = page.getByRole('switch', { name: 'Esc で推論を停止', exact: true })
+    await toggle.waitFor()
+    await waitFor(async () => toggle.isEnabled(), 'Esc preference writable')
+    assert.equal(await toggle.getAttribute('aria-checked'), 'true')
+    await toggle.click()
+    await waitFor(async () => (await toggle.getAttribute('aria-checked')) === 'false', 'Esc disabled')
+    await page.keyboard.press('Escape')
+    await mainInput.fill('MAIN_HOLD_ESC_DISABLED'); await mainInput.press('Enter')
+    await page.getByRole('button', { name: 'Stop generating', exact: true }).waitFor()
+    await mainInput.press('Escape')
+    await page.waitForTimeout(300)
+    assert.ok(await page.getByRole('button', { name: 'Stop generating', exact: true }).isVisible(), 'Disabled Esc must leave the turn running')
+    await page.getByRole('button', { name: 'Stop generating', exact: true }).waitFor({ state: 'hidden', timeout: 15000 })
+    await page.getByText('Settings', { exact: true }).click()
+    await toggle.click()
+    await waitFor(async () => (await toggle.getAttribute('aria-checked')) === 'true', 'Esc enabled')
+    await page.keyboard.press('Escape')
+    await mainInput.fill('MAIN_HOLD_ESC_ENABLED'); await mainInput.press('Enter')
+    await page.getByRole('button', { name: 'Stop generating', exact: true }).waitFor()
+    await mainInput.press('Escape')
+    await page.getByRole('button', { name: 'Stop generating', exact: true }).waitFor({ state: 'hidden', timeout: 3000 })
+    checks.escPreferenceAndStop = true
+  }
+  await writeFile(join(home, 'browser.log'), redact(browserLogs.join('\n')))
   await page.screenshot({ path: join(home, 'fork.png') })
   await page.close()
   // Stop only the fixture server, then prove disk recovery in a new process.
@@ -329,7 +373,7 @@ try {
   await parentTitle.click()
   await restored.getByText('MAIN_TEST_READY', { exact: true }).first().waitFor()
   await restored.locator('[contenteditable="true"][role="textbox"]').first().fill('/btw')
-  await restored.locator('[data-trigger-menu]').getByRole('option').filter({ hasText: /^btw/ }).waitFor()
+  await restored.locator('[data-trigger-menu]').getByRole('option').filter({ hasText: /^btw/i }).waitFor()
   assert.equal(await restored.locator('[data-smart-btw]').count(), 0, 'a restarted DSH must not surface stored questions')
   assert.equal(await restored.getByLabel('Recent BTW questions').count(), 0)
   checks.noHistoryAfterRestart = true
@@ -337,6 +381,7 @@ try {
   checks.browserErrors = 0
   await restored.screenshot({ path: join(home, 'restarted.png') })
 } catch (error) {
+  await writeFile(join(home, 'browser.log'), redact(browserLogs.join('\n')))
   if (browser) {
     const page = browser.contexts()[0]?.pages()[0]
     if (page) { await page.screenshot({ path: join(home, 'failure.png') }); await writeFile(join(home, 'failure.txt'), (await page.locator('body').innerText()).slice(-20000)) }

@@ -21,7 +21,8 @@
   "files": [
     "lib",
     "agents",
-    "tests"
+    "tests",
+    "cordis.patch.yml"
   ],
   "dsh": {
     "bundle": {
@@ -30,9 +31,16 @@
     "client": {
       "inject": [
         "@deepseek-ai/dsh-client-ui-conversation",
-        "@deepseek-ai/dsh-api-session-controller"
+        "@deepseek-ai/dsh-api-session-controller",
+        "@deepseek-ai/dsh-client-ui-model-selection"
       ],
       "platform": "web"
+    },
+    "compatibility": {
+      "dsh": "0.2.0-rc.2 || 0.2.1-alpha.1",
+      "profiles": [
+        "web"
+      ]
     }
   },
   "scripts": {
@@ -40,5 +48,9 @@
   },
   "engines": {
     "node": ">=22"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-llm": "0.2.0-rc.2 || 0.2.1-alpha.1",
+    "@deepseek-ai/dsh-tools": "0.2.0-rc.2 || 0.2.1-alpha.1"
   }
 }

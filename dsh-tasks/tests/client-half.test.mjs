@@ -26,7 +26,8 @@ const ctx = {
 			return () => {};
 		}
 	},
-	sessions: { open() {} }
+	sessions: {},
+	modelDirectories: { directoryFor: (sessionId) => ({ sessionId }) }
 };
 
 const loaded = window.__ModuleLoader__.load;
@@ -77,4 +78,7 @@ test("status dots replace click-through history", () => {
 	assert.deepEqual(factoryExports.seatCopy({ enabled: true, subModel: { provider: "xai", model: "grok-4.7" } }, null), { sub: "sub: grok-4.7", main: "main:" });
 	const seat = registered.find((entry) => entry.options?.name === "conversation.input.right");
 	assert.equal(seat.options.order, 80);
+	assert.ok(factoryExports.inject.includes("modelDirectories"));
+	assert.ok(factoryExports.inject.includes("remote.session"));
+	assert.deepEqual(seat.options.inject("parent-1").directory, { sessionId: "parent-1" });
 });

@@ -11,10 +11,10 @@ vi.mock('@deepseek-ai/dsh-client-ui-primitives', async () => {
     Button: (props: { children?: React.ReactNode; icon?: React.ReactNode; 'aria-label'?: string }) =>
       React.createElement('button', { 'aria-label': props['aria-label'] }, props.icon, props.children),
     Tooltip: (props: { children?: React.ReactNode }) => React.createElement('span', null, props.children),
-    IconBranchOutline16: () => null,
-    IconCloseOutline16: () => null,
-    IconSendOutline16: () => null,
-    IconStopFill16: () => null,
+    IconBranchOutlineRegular: () => null,
+    IconCloseOutlineRegular: () => null,
+    IconSendOutlineRegular: () => null,
+    IconStopFillRegular: () => null,
     MarkdownText: (props: { text: string; labels: MarkdownLabels }) => {
       seen.push(props)
       return React.createElement('div', { 'data-markdown': props.text })

@@ -5,6 +5,7 @@ import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client
 import type { InputTriggerServiceContract } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
 import { dockStyle } from './compat/layout.js'
 import { bindInput } from './compat/input.js'
 import { BtwController } from './controller.js'
@@ -12,7 +13,7 @@ import { createBtwInputSource } from './input-source.js'
 import { BtwOverlay, type BtwOverlayInjected } from './overlay.js'
 
 export const name = 'btw-client'
-export const inject = ['connection', 'inputTriggers', 'sessions', 'slots', 'conversation']
+export const inject = ['connection', 'inputTriggers', 'sessions', 'slots', 'conversation', 'uiWorkspace']
 
 export function apply(ctx: ClientContext): void {
   const connection = ctx.get('connection') as ConnectionHandle | undefined
@@ -60,7 +61,7 @@ export function apply(ctx: ClientContext): void {
         }, 'dsh-btw: session controller')
       }
       return { controller, dockStyle,
-        openChild: async id => { await sessions.refresh(); sessions.open(SessionId(id)) },
+        openChild: async id => { await sessions.refresh(); ctx.uiWorkspace.openSession(SessionId(id)) },
       }
     },
   }, BtwOverlay))

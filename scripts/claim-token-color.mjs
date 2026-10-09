@@ -37,11 +37,20 @@ export const PATCHED = `\t\t\t\tconst active = activeToken();
 \t\t\t\t}
 \t\t\t\tif (node.getStyle() !== TOKEN_STYLE) node.setStyle(TOKEN_STYLE);`
 
+// Current DSH already accepts a separator-free command name, but still copies
+// the token style onto argument nodes when splitting a longer text leaf.
+export const CURRENT_ORIGINAL = ORIGINAL.replace(
+  '\t\t\t\tconst token = activeToken();\n\t\t\t\tconst text = node.getTextContent();',
+  '\t\t\t\tconst text = node.getTextContent();\n\t\t\t\tconst active = activeToken();\n\t\t\t\tconst token = text === active?.trimEnd() ? text : active;',
+)
+
 export function patchClaimTokenColor(source) {
-  const original = source.includes(ORIGINAL)
+  const originals = [ORIGINAL, CURRENT_ORIGINAL].filter(block => source.includes(block))
+  const original = originals.length > 0
   const patched = source.includes(PATCHED)
   if (original && patched) throw new Error('claim decoration contains both the original and patched blocks')
   if (!original && !patched) throw new Error('claim decoration block was not found')
   if (patched) return { source, state: 'patched', changed: false }
-  return { source: source.replace(ORIGINAL, PATCHED), state: 'patched', changed: true }
+  if (originals.length !== 1) throw new Error('claim decoration contains multiple upstream blocks')
+  return { source: source.replace(originals[0], PATCHED), state: 'patched', changed: true }
 }

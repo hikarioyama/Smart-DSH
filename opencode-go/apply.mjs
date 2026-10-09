@@ -21,59 +21,34 @@
  */
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
-import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { resolveDshPackage } from "../scripts/dsh-package.cjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DSH_HOME = resolve(process.env.DSH_HOME ?? join(homedir(), ".dsh"));
 const SETTINGS = join(DSH_HOME, "settings.yaml");
 const BACKUP_ROOT = join(DSH_HOME, "backups");
-/** PATH 上の `dsh` 実行体から DSH パッケージルートを解決する (PI_AI_DIR で上書き可)。 */
-function dshRoot() {
-	if (process.env.PI_AI_DIR) return process.env.PI_AI_DIR;
-	for (const dir of (process.env.PATH ?? "").split(":")) {
-		if (!dir) continue;
-		const link = join(dir, "dsh");
-		if (!existsSync(link)) continue;
-		try {
-			return dirname(dirname(realpathSync(link)));
-		} catch {
-			/* 壊れた symlink は無視して次の候補へ */
-		}
-	}
-	throw new Error("dsh not found on PATH (apply.mjs)");
-}
-
 const argv = process.argv.slice(2);
 const dryRun = argv.includes("--dry-run");
 const noDeepseek = argv.includes("--no-deepseek");
 
 // ---- 1. gen.mjs → 3 ルート分の断片
-const genOut = dryRun ? "/tmp/ocgo-delta.yaml" : "/tmp/ocgo-delta.yaml";
+const temporary = mkdtempSync(join(tmpdir(), "smart-dsh-ocgo-"));
+process.on("exit", () => rmSync(temporary, { recursive: true, force: true }));
+const genOut = join(temporary, "delta.yaml");
 const gen = spawnSync(process.execPath, [join(HERE, "gen.mjs"), ...(noDeepseek ? ["--no-deepseek"] : []), "--out", genOut], {
-	stdio: ["ignore", "ignore", "inherit"],
-	cwd: HERE,
+  stdio: ["ignore", "ignore", "inherit"], cwd: HERE,
 });
-if (gen.status !== 0) {
-	console.error("gen.mjs 失敗");
-	process.exit(1);
-}
+if (gen.error) throw gen.error;
+if (gen.status !== 0) throw new Error("gen.mjs failed");
 
-const require2 = createRequire(import.meta.url);
-function loadYaml() {
-	const roots = [];
-	for (const root of roots) {
-		try {
-			return require2(join(root, "node_modules", "yaml"));
-		} catch {
-			/* 次の候補へ */
-		}
-	}
-	throw new Error("yaml モジュールが見つかりません");
-}
-const YAML = loadYaml();
+// Use the YAML Document API installed with DSH's plugin manager.
+const requireYaml = createRequire(join(resolveDshPackage("@deepseek-ai/dsh-plugin-manager"), "package.json"));
+const YAML = requireYaml("yaml");
 
 // gen.mjs は 3 ルート分を 1 ファイルに書く → マーカーで分割して parse する。
 const raw = readFileSync(genOut, "utf8");
